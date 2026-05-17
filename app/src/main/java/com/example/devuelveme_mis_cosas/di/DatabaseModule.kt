@@ -4,7 +4,9 @@ import android.content.Context
 import androidx.room.Room
 import com.example.devuelveme_mis_cosas.data.local.LoanDao
 import com.example.devuelveme_mis_cosas.data.local.LoanDatabase
+import com.example.devuelveme_mis_cosas.data.repository.ContactsRepositoryImpl
 import com.example.devuelveme_mis_cosas.data.repository.LoanRepositoryImpl
+import com.example.devuelveme_mis_cosas.domain.repository.ContactsRepository
 import com.example.devuelveme_mis_cosas.domain.repository.LoanRepository
 import dagger.Module
 import dagger.Provides
@@ -23,8 +25,10 @@ object DatabaseModule {
         return Room.databaseBuilder(
             context,
             LoanDatabase::class.java,
-            "loans_db"
-        ).build()
+            "devuelveme_mis_cosas_db"
+        )
+        .fallbackToDestructiveMigration()
+        .build()
     }
 
     @Provides
@@ -36,5 +40,11 @@ object DatabaseModule {
     @Singleton
     fun provideLoanRepository(loanDao: LoanDao): LoanRepository {
         return LoanRepositoryImpl(loanDao)
+    }
+
+    @Provides
+    @Singleton
+    fun provideContactsRepository(@ApplicationContext context: Context): ContactsRepository {
+        return ContactsRepositoryImpl(context)
     }
 }

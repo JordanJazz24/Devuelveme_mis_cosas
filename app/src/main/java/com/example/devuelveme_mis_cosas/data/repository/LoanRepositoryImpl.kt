@@ -4,6 +4,7 @@ import com.example.devuelveme_mis_cosas.data.local.LoanDao
 import com.example.devuelveme_mis_cosas.data.local.LoanEntity
 import com.example.devuelveme_mis_cosas.domain.repository.LoanRepository
 import kotlinx.coroutines.flow.Flow
+import java.util.UUID
 import javax.inject.Inject
 
 class LoanRepositoryImpl @Inject constructor(
@@ -14,5 +15,5 @@ class LoanRepositoryImpl @Inject constructor(
     override suspend fun deleteLoan(loan: LoanEntity) = loanDao.deleteLoan(loan)
     override fun getActiveLoans(): Flow<List<LoanEntity>> = loanDao.getActiveLoans()
     override fun getReturnedLoans(): Flow<List<LoanEntity>> = loanDao.getReturnedLoans()
-    override fun getLoanById(id: Int): Flow<LoanEntity> = loanDao.getLoanById(id)
+    override fun getLoanById(id: UUID): Flow<LoanEntity> = loanDao.getLoanById(id)
 }

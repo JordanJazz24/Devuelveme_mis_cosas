@@ -10,6 +10,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.devuelveme_mis_cosas.presentation.history.HistoryScreen
 import com.example.devuelveme_mis_cosas.presentation.loan_detail.LoanDetailScreen
 import com.example.devuelveme_mis_cosas.presentation.loan_list.LoanListScreen
 import com.example.devuelveme_mis_cosas.presentation.navigation.Screen
@@ -44,6 +45,9 @@ fun AppNavigation() {
                 },
                 onNavigateToDetail = { loanId ->
                     navController.navigate(Screen.LoanDetail.createRoute(loanId))
+                },
+                onNavigateToHistory = {
+                    navController.navigate(Screen.History.route)
                 }
             )
         }
@@ -54,9 +58,17 @@ fun AppNavigation() {
                 }
             )
         }
+        composable(Screen.History.route) {
+            HistoryScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToDetail = { loanId ->
+                    navController.navigate(Screen.LoanDetail.createRoute(loanId))
+                }
+            )
+        }
         composable(
             route = Screen.LoanDetail.route,
-            arguments = listOf(navArgument("loanId") { type = NavType.IntType })
+            arguments = listOf(navArgument("loanId") { type = NavType.StringType })
         ) {
             LoanDetailScreen(
                 onNavigateBack = {

@@ -1,24 +1,39 @@
 package com.example.devuelveme_mis_cosas.presentation.new_loan
 
+import android.Manifest
 import android.net.Uri
 import android.os.Environment
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.ContactPage
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
+import com.example.devuelveme_mis_cosas.data.local.LoanCategory
+import com.example.devuelveme_mis_cosas.domain.model.Contact
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -32,25 +47,57 @@ fun NewLoanScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     val dateFormatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    var showDatePicker by remember { mutableStateOf(false) }
-    var tempPhotoUri by remember { mutableStateOf<Uri?>(null) }
+    var showLoanDatePicker by remember { mutableStateOf(false) }
+    var showDueDatePicker by remember { mutableStateOf(false) }
+    
+    // Usamos rememberSaveable con String para que persista tras rotación o cierre de cámara
+    var tempPhotoUriString by rememberSaveable { mutableStateOf<String?>(null) }
+    var showCategoryMenu by remember { mutableStateOf(false) }
 
-    val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicture()
-    ) { success ->
-        if (success) {
-            viewModel.onPhotoCaptured(tempPhotoUri)
+    val contactPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) viewModel.toggleContactPicker(true)
+    }
+
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+        if (success && tempPhotoUriString != null) {
+            viewModel.onPhotoSelected(Uri.parse(tempPhotoUriString))
+        }
+    }
+
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) viewModel.onPhotoSelected(uri)
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            val photoFile = File(context.getExternalFilesDir(Environment.DIRECTORY_PICTURES), "loan_${System.currentTimeMillis()}.jpg")
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", photoFile)
+            tempPhotoUriString = uri.toString()
+            cameraLauncher.launch(uri)
         }
     }
 
     LaunchedEffect(uiState.saveSuccess) {
-        if (uiState.saveSuccess) {
-            onNavigateBack()
+        if (uiState.saveSuccess) onNavigateBack()
+    }
+
+    LaunchedEffect(uiState.errorMessage) {
+        uiState.errorMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearErrorMessage()
         }
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Nuevo Préstamo") },
@@ -61,7 +108,7 @@ fun NewLoanScreen(
                 },
                 actions = {
                     TextButton(onClick = { viewModel.saveLoan() }) {
-                        Text("GUARDAR", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        Text("GUARDAR", fontWeight = FontWeight.Bold)
                     }
                 }
             )
@@ -78,100 +125,207 @@ fun NewLoanScreen(
             TextField(
                 value = uiState.nombreObjeto,
                 onValueChange = viewModel::onNombreObjetoChange,
-                label = { Text("¿Qué has prestado?") },
-                modifier = Modifier.fillMaxWidth()
+                label = { Text("¿Qué has prestado? *") },
+                modifier = Modifier.fillMaxWidth(),
+                isError = uiState.nombreObjeto.isBlank() && uiState.errorMessage != null
             )
 
-            TextField(
-                value = uiState.contactoNombre,
-                onValueChange = viewModel::onContactoNombreChange,
-                label = { Text("Nombre del contacto") },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                TextField(
-                    value = uiState.contactoTelefono,
-                    onValueChange = viewModel::onContactoTelefonoChange,
-                    label = { Text("Teléfono (opcional)") },
-                    modifier = Modifier.weight(1f)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Button(onClick = { /* TODO: Integrar contactos en Fase 3 */ }) {
-                    Text("Contacto")
-                }
-            }
-
-            OutlinedCard(
-                onClick = { showDatePicker = true },
-                modifier = Modifier.fillMaxWidth()
+            ExposedDropdownMenuBox(
+                expanded = showCategoryMenu,
+                onExpandedChange = { showCategoryMenu = !showCategoryMenu }
             ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                TextField(
+                    value = uiState.categoria.name,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Categoría") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showCategoryMenu) },
+                    modifier = Modifier.menuAnchor().fillMaxWidth()
+                )
+                ExposedDropdownMenu(
+                    expanded = showCategoryMenu,
+                    onDismissRequest = { showCategoryMenu = false }
                 ) {
-                    Icon(Icons.Default.DateRange, contentDescription = null)
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column {
-                        Text("Fecha de devolución", style = MaterialTheme.typography.labelMedium)
-                        Text(
-                            text = dateFormatter.format(Date(uiState.fechaDevolucion)),
-                            style = MaterialTheme.typography.bodyLarge
+                    LoanCategory.entries.forEach { category ->
+                        DropdownMenuItem(
+                            text = { Text(category.name) },
+                            onClick = {
+                                viewModel.onCategoriaChange(category)
+                                showCategoryMenu = false
+                            }
                         )
                     }
                 }
             }
 
+            // Contact Picker Section
+            OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Contacto *", style = MaterialTheme.typography.titleMedium)
+                        IconButton(onClick = {
+                            contactPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+                        }) {
+                            Icon(Icons.Default.ContactPage, contentDescription = "Seleccionar contacto")
+                        }
+                    }
+                    if (uiState.contactoNombre.isNotBlank()) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (uiState.contactoPhotoUri != null) {
+                                AsyncImage(
+                                    model = uiState.contactoPhotoUri,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(40.dp).clip(CircleShape),
+                                    contentScale = ContentScale.Crop
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                            }
+                            Column {
+                                Text(uiState.contactoNombre, fontWeight = FontWeight.Bold)
+                                if (uiState.contactoTelefono.isNotBlank()) {
+                                    Text(uiState.contactoTelefono, style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Date Pickers
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                DatePickerField(
+                    label = "Fecha Préstamo",
+                    date = uiState.fechaPrestamo,
+                    onClick = { showLoanDatePicker = true },
+                    modifier = Modifier.weight(1f),
+                    dateFormatter = dateFormatter
+                )
+                DatePickerField(
+                    label = "Fecha Devolución",
+                    date = uiState.fechaDevolucion,
+                    onClick = { showDueDatePicker = true },
+                    modifier = Modifier.weight(1f),
+                    dateFormatter = dateFormatter
+                )
+            }
+
+            // Photo Section
             if (uiState.photoUri != null) {
                 AsyncImage(
                     model = uiState.photoUri,
                     contentDescription = "Foto del objeto",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp)
+                    modifier = Modifier.fillMaxWidth().height(200.dp).clip(MaterialTheme.shapes.medium),
+                    contentScale = ContentScale.Crop
                 )
             }
 
-            Button(
-                onClick = {
-                    val photoFile = File(
-                        context.getExternalFilesDir(Environment.DIRECTORY_PICTURES),
-                        "loan_${System.currentTimeMillis()}.jpg"
-                    )
-                    val uri = FileProvider.getUriForFile(
-                        context,
-                        "${context.packageName}.fileprovider",
-                        photoFile
-                    )
-                    tempPhotoUri = uri
-                    cameraLauncher.launch(uri)
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(if (uiState.photoUri == null) "Tomar Foto del Objeto" else "Cambiar Foto")
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = { cameraPermissionLauncher.launch(Manifest.permission.CAMERA) },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.CameraAlt, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Cámara")
+                }
+                OutlinedButton(
+                    onClick = { 
+                        galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.PhotoLibrary, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Galería")
+                }
             }
         }
     }
 
-    if (showDatePicker) {
-        val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = uiState.fechaDevolucion
+    // Dialogs
+    if (uiState.showContactPicker) {
+        ContactPickerDialog(
+            contacts = uiState.contacts,
+            onContactSelected = viewModel::onContactSelected,
+            onDismiss = { viewModel.toggleContactPicker(false) }
         )
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let {
-                        viewModel.onFechaDevolucionChange(it)
+    }
+
+    if (showLoanDatePicker) {
+        DatePickerModal(
+            initialDate = viewModel.getUtcMillis(uiState.fechaPrestamo),
+            onDateSelected = { viewModel.onFechaPrestamoChange(it) },
+            onDismiss = { showLoanDatePicker = false }
+        )
+    }
+
+    if (showDueDatePicker) {
+        DatePickerModal(
+            initialDate = viewModel.getUtcMillis(uiState.fechaDevolucion),
+            onDateSelected = { viewModel.onFechaDevolucionChange(it) },
+            onDismiss = { showDueDatePicker = false }
+        )
+    }
+}
+
+@Composable
+fun DatePickerField(label: String, date: Date, onClick: () -> Unit, modifier: Modifier, dateFormatter: SimpleDateFormat) {
+    OutlinedCard(onClick = onClick, modifier = modifier) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(label, style = MaterialTheme.typography.labelSmall)
+            Text(dateFormatter.format(date), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DatePickerModal(initialDate: Long, onDateSelected: (Long) -> Unit, onDismiss: () -> Unit) {
+    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialDate)
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = {
+                datePickerState.selectedDateMillis?.let { onDateSelected(it) }
+                onDismiss()
+            }) { Text("Aceptar") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
+    ) { DatePicker(state = datePickerState) }
+}
+
+@Composable
+fun ContactPickerDialog(contacts: List<Contact>, onContactSelected: (Contact) -> Unit, onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss) {
+        Card(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.8f), shape = MaterialTheme.shapes.large) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("Seleccionar Contacto", style = MaterialTheme.typography.headlineSmall)
+                Spacer(modifier = Modifier.height(16.dp))
+                LazyColumn {
+                    items(contacts) { contact ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().clickable { onContactSelected(contact) }.padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            AsyncImage(
+                                model = contact.photoUri,
+                                contentDescription = null,
+                                modifier = Modifier.size(40.dp).clip(CircleShape),
+                                contentScale = ContentScale.Crop
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(contact.name, style = MaterialTheme.typography.bodyLarge)
+                                contact.phoneNumber?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                            }
+                        }
                     }
-                    showDatePicker = false
-                }) { Text("Aceptar") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text("Cancelar") }
+                }
             }
-        ) {
-            DatePicker(state = datePickerState)
         }
     }
 }
