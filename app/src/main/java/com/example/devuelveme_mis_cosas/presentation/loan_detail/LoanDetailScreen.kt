@@ -6,20 +6,30 @@ import android.os.Environment
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -45,7 +55,6 @@ fun LoanDetailScreen(
     val dateFormatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
     val snackbarHostState = remember { SnackbarHostState() }
     
-    // URI temporal para la captura de devolución, persistente a recreaciones
     var tempPhotoUriString by rememberSaveable { mutableStateOf<String?>(null) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showCameraRationale by remember { mutableStateOf(false) }
@@ -76,9 +85,7 @@ fun LoanDetailScreen(
     }
 
     LaunchedEffect(uiState.saveSuccess) {
-        if (uiState.saveSuccess) {
-            onNavigateBack()
-        }
+        if (uiState.saveSuccess) onNavigateBack()
     }
 
     LaunchedEffect(uiState.reminderMessage) {
@@ -89,109 +96,208 @@ fun LoanDetailScreen(
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            TopAppBar(
-                title = { Text("Detalle del Préstamo") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { showDeleteDialog = true }) {
-                        Icon(Icons.Default.Delete, contentDescription = "Eliminar")
-                    }
-                }
-            )
-        }
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         loan?.let { entity ->
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding)
-                    .padding(16.dp)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 32.dp)
             ) {
-                // Fotos
-                Row(modifier = Modifier.fillMaxWidth().height(200.dp)) {
-                    LoanPhoto(
-                        uri = entity.photoLoanUri,
-                        label = "Foto Inicial",
-                        modifier = Modifier.weight(1f)
+                // Header con imagen inmersiva
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(350.dp)
+                ) {
+                    if (entity.photoLoanUri != null) {
+                        AsyncImage(
+                            model = entity.photoLoanUri,
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(MaterialTheme.colorScheme.surfaceVariant),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Category,
+                                contentDescription = null,
+                                modifier = Modifier.size(64.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            )
+                        }
+                    }
+
+                    // Gradiente inferior para legibilidad del título
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Black.copy(alpha = 0.4f),
+                                        Color.Transparent,
+                                        Color.Black.copy(alpha = 0.8f)
+                                    )
+                                )
+                            )
                     )
-                    if (entity.estado == LoanStatus.DEVUELTO) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        LoanPhoto(
-                            uri = entity.photoReturnUri,
-                            label = "Foto Devolución",
-                            modifier = Modifier.weight(1f)
+
+                    // Top Controls (Botón volver y borrar)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 48.dp, start = 8.dp, end = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        IconButton(
+                            onClick = onNavigateBack,
+                            colors = IconButtonDefaults.iconButtonColors(
+                                containerColor = Color.Black.copy(alpha = 0.3f)
+                            )
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver", tint = Color.White)
+                        }
+
+                        IconButton(
+                            onClick = { showDeleteDialog = true },
+                            colors = IconButtonDefaults.iconButtonColors(
+                                containerColor = Color.Black.copy(alpha = 0.3f)
+                            )
+                        ) {
+                            Icon(Icons.Default.Delete, "Eliminar", tint = Color.White)
+                        }
+                    }
+
+                    // Título y Estado sobre el gradiente inferior
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(24.dp)
+                    ) {
+                        Text(
+                            text = entity.nombreObjeto,
+                            style = MaterialTheme.typography.headlineLarge,
+                            color = Color.White
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        SuggestionChip(
+                            onClick = { },
+                            label = { Text(entity.estado.name) },
+                            colors = SuggestionChipDefaults.suggestionChipColors(
+                                containerColor = if (entity.estado == LoanStatus.ACTIVO) 
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                                else 
+                                    MaterialTheme.colorScheme.secondary.copy(alpha = 0.8f),
+                                labelColor = Color.White
+                            ),
+                            border = null,
+                            shape = RoundedCornerShape(12.dp)
                         )
                     }
                 }
 
-                Text(
-                    text = entity.nombreObjeto,
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                
-                AssistChip(
-                    onClick = { },
-                    label = { Text(entity.estado.name) },
-                    colors = AssistChipDefaults.assistChipColors(
-                        containerColor = if (entity.estado == LoanStatus.ACTIVO) 
-                            MaterialTheme.colorScheme.primaryContainer 
-                        else 
-                            MaterialTheme.colorScheme.secondaryContainer
-                    )
-                )
-
-                HorizontalDivider()
-
-                DetailItem(label = "Contacto", value = entity.contactoNombre)
-                if (entity.contactoTelefono.isNotBlank()) {
-                    DetailItem(label = "Teléfono", value = entity.contactoTelefono)
-                }
-                DetailItem(label = "Categoría", value = entity.categoria.name)
-                DetailItem(label = "Fecha de préstamo", value = dateFormatter.format(entity.fechaPrestamo))
-                DetailItem(
-                    label = if (entity.estado == LoanStatus.ACTIVO) "Fecha esperada" else "Fecha de devolución",
-                    value = dateFormatter.format(entity.fechaDevolucion)
-                )
-                
-                if (entity.reminderCount > 0) {
-                    DetailItem(label = "Recordatorios enviados", value = entity.reminderCount.toString())
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                if (entity.estado == LoanStatus.ACTIVO) {
-                    Button(
-                        onClick = { viewModel.sendReminder() },
-                        modifier = Modifier.fillMaxWidth()
+                // Información Detallada en Grid/Cards
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
+                    ElevatedCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.elevatedCardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        )
                     ) {
-                        Text("Recordar por WhatsApp")
+                        Column(modifier = Modifier.padding(20.dp)) {
+                            InfoRow(Icons.Default.Person, "Persona", entity.contactoNombre)
+                            if (entity.contactoTelefono.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(16.dp))
+                                InfoRow(Icons.Default.Phone, "Contacto", entity.contactoTelefono)
+                            }
+                            Spacer(modifier = Modifier.height(16.dp))
+                            InfoRow(Icons.Default.Category, "Categoría", entity.categoria.name)
+                        }
                     }
 
-                    FilledTonalButton(
-                        onClick = { viewModel.markAsReturned(null) },
-                        modifier = Modifier.fillMaxWidth()
+                    ElevatedCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.elevatedCardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        )
                     ) {
-                        Icon(Icons.Default.Check, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Marcar como Devuelto (Sin Foto)")
+                        Column(modifier = Modifier.padding(20.dp)) {
+                            InfoRow(Icons.Default.CalendarToday, "Fecha Préstamo", dateFormatter.format(entity.fechaPrestamo))
+                            Spacer(modifier = Modifier.height(16.dp))
+                            InfoRow(
+                                Icons.Default.CalendarToday, 
+                                if (entity.estado == LoanStatus.ACTIVO) "Fecha Límite" else "Fecha Devolución", 
+                                dateFormatter.format(entity.fechaDevolucion)
+                            )
+                        }
                     }
 
-                    OutlinedButton(
-                        onClick = { cameraPermissionLauncher.launch(Manifest.permission.CAMERA) },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Default.CameraAlt, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Capturar Foto y Marcar como Devuelto")
+                    // Foto de Devolución (Si existe)
+                    if (entity.estado == LoanStatus.DEVUELTO && entity.photoReturnUri != null) {
+                        Text(
+                            "Evidencia de Devolución",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        AsyncImage(
+                            model = entity.photoReturnUri,
+                            contentDescription = "Foto devolución",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp)
+                                .clip(RoundedCornerShape(24.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Acciones
+                    if (entity.estado == LoanStatus.ACTIVO) {
+                        Button(
+                            onClick = { viewModel.sendReminder() },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.Send, null)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text("Recordar por WhatsApp", fontWeight = FontWeight.Bold)
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            OutlinedButton(
+                                onClick = { viewModel.markAsReturned(null) },
+                                modifier = Modifier.weight(1f).height(50.dp),
+                                shape = RoundedCornerShape(16.dp)
+                            ) {
+                                Text("Devuelto")
+                            }
+                            FilledTonalButton(
+                                onClick = { cameraPermissionLauncher.launch(Manifest.permission.CAMERA) },
+                                modifier = Modifier.weight(1.5f).height(50.dp),
+                                shape = RoundedCornerShape(16.dp)
+                            ) {
+                                Icon(Icons.Default.CameraAlt, null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Cerrar con Foto")
+                            }
+                        }
                     }
                 }
             }
@@ -203,11 +309,12 @@ fun LoanDetailScreen(
         }
     }
 
+    // Dialogs
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Eliminar Préstamo") },
-            text = { Text("¿Estás seguro de que quieres eliminar este registro? Esta acción no se puede deshacer.") },
+            title = { Text("¿Eliminar registro?") },
+            text = { Text("Esta acción borrará permanentemente la información del préstamo.") },
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.deleteLoan()
@@ -223,7 +330,7 @@ fun LoanDetailScreen(
     if (showCameraRationale) {
         PermissionDialog(
             permissionName = "Cámara",
-            rationale = "Necesitamos acceso a la cámara para capturar la evidencia de que el objeto ha sido devuelto correctamente.",
+            rationale = "Necesitamos la cámara para guardar una foto del estado en que te devuelven el objeto.",
             onDismiss = { showCameraRationale = false },
             onConfirm = {
                 showCameraRationale = false
@@ -234,37 +341,18 @@ fun LoanDetailScreen(
 }
 
 @Composable
-fun LoanPhoto(uri: String?, label: String, modifier: Modifier = Modifier) {
-    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label, style = MaterialTheme.typography.labelSmall)
-        Spacer(modifier = Modifier.height(4.dp))
-        if (uri != null) {
-            AsyncImage(
-                model = uri,
-                contentDescription = label,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(MaterialTheme.shapes.medium),
-                contentScale = ContentScale.Crop
-            )
-        } else {
-            Surface(
-                modifier = Modifier.fillMaxSize(),
-                shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.surfaceVariant
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text("Sin foto", style = MaterialTheme.typography.bodySmall)
-                }
-            }
+fun InfoRow(icon: ImageVector, label: String, value: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Column {
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
         }
-    }
-}
-
-@Composable
-fun DetailItem(label: String, value: String) {
-    Column {
-        Text(text = label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-        Text(text = value, style = MaterialTheme.typography.bodyLarge)
     }
 }

@@ -4,8 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -33,8 +32,16 @@ fun HistoryScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Historial de Préstamos") }
+            LargeTopAppBar(
+                title = { 
+                    Text(
+                        "Historial",
+                        style = MaterialTheme.typography.headlineMedium
+                    ) 
+                },
+                colors = TopAppBarDefaults.largeTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
             )
         }
     ) { padding ->
@@ -45,7 +52,11 @@ fun HistoryScreen(
                     .padding(padding),
                 contentAlignment = Alignment.Center
             ) {
-                Text("No hay préstamos devueltos aún")
+                Text(
+                    "No hay préstamos devueltos aún",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         } else {
             LazyColumn(
@@ -53,7 +64,7 @@ fun HistoryScreen(
                     .fillMaxSize()
                     .padding(padding),
                 contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
                 items(loans) { loan ->
                     HistoryItem(
@@ -73,73 +84,82 @@ fun HistoryItem(
     onClick: () -> Unit,
     dateFormatter: SimpleDateFormat
 ) {
-    Card(
+    ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = RoundedCornerShape(24.dp),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = loan.nombreObjeto,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "De: ${loan.contactoNombre}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(100.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .height(120.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // Foto inicial
                 Box(modifier = Modifier.weight(1f)) {
-                    LoanThumbnail(uri = loan.photoLoanUri, label = "Inicial")
+                    HistoryThumbnail(uri = loan.photoLoanUri, label = "INICIAL")
                 }
                 // Foto devolución
                 Box(modifier = Modifier.weight(1f)) {
-                    LoanThumbnail(uri = loan.photoReturnUri, label = "Devolución")
+                    HistoryThumbnail(uri = loan.photoReturnUri, label = "DEVUELTO")
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            Column {
-                Text(
-                    text = loan.nombreObjeto,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "De: ${loan.contactoNombre}",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                val returnDate = loan.fechaDevolucionReal ?: loan.fechaDevolucion
-                Text(
-                    text = "Devuelto el: ${dateFormatter.format(returnDate)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.secondary,
-                    fontWeight = FontWeight.Bold
-                )
-            }
+            val returnDate = loan.fechaDevolucionReal ?: loan.fechaDevolucion
+            Text(
+                text = "Cerrado el ${dateFormatter.format(returnDate)}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.secondary,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
 
 @Composable
-fun LoanThumbnail(uri: String?, label: String) {
-    if (uri != null) {
-        AsyncImage(
-            model = uri,
-            contentDescription = label,
-            modifier = Modifier
-                .fillMaxSize()
-                .clip(MaterialTheme.shapes.small),
-            contentScale = ContentScale.Crop
-        )
-    } else {
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            shape = MaterialTheme.shapes.small,
-            color = MaterialTheme.colorScheme.surfaceVariant
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(label, style = MaterialTheme.typography.labelSmall)
+fun HistoryThumbnail(uri: String?, label: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .clip(RoundedCornerShape(16.dp))
+    ) {
+        if (uri != null) {
+            AsyncImage(
+                model = uri,
+                contentDescription = label,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        } else {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        label, 
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }

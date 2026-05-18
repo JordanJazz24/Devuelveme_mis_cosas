@@ -8,7 +8,9 @@ import androidx.compose.material.icons.filled.List
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -33,7 +35,6 @@ fun MainScreen(intent: Intent?) {
     LaunchedEffect(intent) {
         intent?.getStringExtra(LoanReminderWorker.KEY_LOAN_ID)?.let { loanId ->
             navController.navigate(Screen.LoanDetail.createRoute(UUID.fromString(loanId)))
-            // Limpiar el extra para evitar re-navegación en recomposición
             intent.removeExtra(LoanReminderWorker.KEY_LOAN_ID)
         }
     }
@@ -54,10 +55,14 @@ fun MainScreen(intent: Intent?) {
     Scaffold(
         bottomBar = {
             if (currentRoute == Screen.LoanList.route || currentRoute == Screen.History.route) {
-                NavigationBar {
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 4.dp // Elevación sutil para integración
+                ) {
                     bottomTabs.forEach { tab ->
+                        val isSelected = currentRoute == tab.route
                         NavigationBarItem(
-                            selected = currentRoute == tab.route,
+                            selected = isSelected,
                             onClick = {
                                 navController.navigate(tab.route) {
                                     popUpTo(navController.graph.findStartDestination().id) { saveState = true }
@@ -65,14 +70,27 @@ fun MainScreen(intent: Intent?) {
                                     restoreState = true
                                 }
                             },
-                            icon = { Icon(tab.icon, contentDescription = tab.label) },
-                            label = { Text(tab.label) }
+                            icon = { 
+                                Icon(
+                                    imageVector = tab.icon, 
+                                    contentDescription = tab.label,
+                                    tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                ) 
+                            },
+                            label = { 
+                                Text(
+                                    text = tab.label,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                ) 
+                            }
                         )
                     }
                 }
             }
         }
-    ) { paddingValues ->
+    )
+{ paddingValues ->
         NavHost(
             navController = navController,
             startDestination = Screen.LoanList.route,
