@@ -16,8 +16,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.ContactPage
 import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -36,7 +38,9 @@ import com.example.devuelveme_mis_cosas.data.local.LoanCategory
 import com.example.devuelveme_mis_cosas.domain.model.Contact
 import java.io.File
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
+import java.util.Locale
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,18 +52,24 @@ fun NewLoanScreen(
     val context = LocalContext.current
     val dateFormatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
     val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     var showLoanDatePicker by remember { mutableStateOf(false) }
     var showDueDatePicker by remember { mutableStateOf(false) }
     
-    // Usamos rememberSaveable con String para que persista tras rotación o cierre de cámara
     var tempPhotoUriString by rememberSaveable { mutableStateOf<String?>(null) }
     var showCategoryMenu by remember { mutableStateOf(false) }
 
     val contactPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
-        if (isGranted) viewModel.toggleContactPicker(true)
+        if (isGranted) {
+            viewModel.toggleContactPicker(true)
+        } else {
+            scope.launch {
+                snackbarHostState.showSnackbar("Permiso de contactos denegado. Puedes escribir el nombre manualmente.")
+            }
+        }
     }
 
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
@@ -82,6 +92,10 @@ fun NewLoanScreen(
             val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", photoFile)
             tempPhotoUriString = uri.toString()
             cameraLauncher.launch(uri)
+        } else {
+            scope.launch {
+                snackbarHostState.showSnackbar("Permiso de cámara denegado. Puedes seleccionar una foto desde la galería.")
+            }
         }
     }
 
@@ -251,7 +265,9 @@ fun NewLoanScreen(
         ContactPickerDialog(
             contacts = uiState.contacts,
             onContactSelected = viewModel::onContactSelected,
-            onDismiss = { viewModel.toggleContactPicker(false) }
+            onDismiss = { viewModel.toggleContactPicker(false) },
+            searchQuery = uiState.contactSearchQuery,
+            onSearchQueryChange = viewModel::onContactSearchQueryChange
         )
     }
 
@@ -299,16 +315,65 @@ fun DatePickerModal(initialDate: Long, onDateSelected: (Long) -> Unit, onDismiss
 }
 
 @Composable
-fun ContactPickerDialog(contacts: List<Contact>, onContactSelected: (Contact) -> Unit, onDismiss: () -> Unit) {
+fun ContactPickerDialog(
+    contacts: List<Contact>,
+    onContactSelected: (Contact) -> Unit,
+    onDismiss: () -> Unit,
+    searchQuery: String = "",
+    onSearchQueryChange: (String) -> Unit = {}
+) {
+    val filteredContacts = remember(contacts, searchQuery) {
+        if (searchQuery.isBlank()) {
+            contacts
+        } else {
+            val q = searchQuery.lowercase().trim()
+            contacts.filter {
+                it.name.lowercase().contains(q) ||
+                        it.phoneNumber?.contains(q) == true
+            }
+        }
+    }
+
     Dialog(onDismissRequest = onDismiss) {
-        Card(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.8f), shape = MaterialTheme.shapes.large) {
+        Card(
+            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.8f),
+            shape = MaterialTheme.shapes.large
+        ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text("Seleccionar Contacto", style = MaterialTheme.typography.headlineSmall)
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = onSearchQueryChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("Busca un nombre o número de teléfono") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Buscar"
+                        )
+                    },
+                    trailingIcon = {
+                        if (searchQuery.isNotBlank()) {
+                            IconButton(onClick = { onSearchQueryChange("") }) {
+                                Icon(Icons.Default.Clear, contentDescription = "Limpiar")
+                            }
+                        }
+                    },
+                    singleLine = true,
+                    shape = MaterialTheme.shapes.medium
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
                 LazyColumn {
-                    items(contacts) { contact ->
+                    items(filteredContacts) { contact ->
                         Row(
-                            modifier = Modifier.fillMaxWidth().clickable { onContactSelected(contact) }.padding(vertical = 8.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onContactSelected(contact) }
+                                .padding(vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             AsyncImage(
@@ -320,7 +385,9 @@ fun ContactPickerDialog(contacts: List<Contact>, onContactSelected: (Contact) ->
                             Spacer(modifier = Modifier.width(12.dp))
                             Column {
                                 Text(contact.name, style = MaterialTheme.typography.bodyLarge)
-                                contact.phoneNumber?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                                contact.phoneNumber?.let {
+                                    Text(it, style = MaterialTheme.typography.bodySmall)
+                                }
                             }
                         }
                     }

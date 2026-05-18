@@ -15,6 +15,9 @@ enum class LoanCategory {
     HERRAMIENTAS,
     LIBROS,
     ELECTRONICA,
+    ROPA,
+    VIDEOJUEGOS,
+    PELICULAS,
     OTROS
 }
 

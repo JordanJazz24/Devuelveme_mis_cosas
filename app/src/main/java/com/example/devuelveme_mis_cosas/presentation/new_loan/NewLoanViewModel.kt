@@ -1,22 +1,30 @@
 package com.example.devuelveme_mis_cosas.presentation.new_loan
 
+import android.content.Context
 import android.net.Uri
 import android.util.Log
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.Data
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import com.example.devuelveme_mis_cosas.data.local.LoanCategory
 import com.example.devuelveme_mis_cosas.data.local.LoanEntity
 import com.example.devuelveme_mis_cosas.data.local.LoanStatus
 import com.example.devuelveme_mis_cosas.domain.model.Contact
 import com.example.devuelveme_mis_cosas.domain.repository.ContactsRepository
 import com.example.devuelveme_mis_cosas.domain.repository.LoanRepository
+import com.example.devuelveme_mis_cosas.work.LoanReminderWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.Calendar
 import java.util.Date
 import java.util.TimeZone
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 data class NewLoanUiState(
@@ -32,13 +40,15 @@ data class NewLoanUiState(
     val saveSuccess: Boolean = false,
     val errorMessage: String? = null,
     val contacts: List<Contact> = emptyList(),
-    val showContactPicker: Boolean = false
+    val showContactPicker: Boolean = false,
+    val contactSearchQuery: String = ""
 )
 
 @HiltViewModel
 class NewLoanViewModel @Inject constructor(
     private val repository: LoanRepository,
-    private val contactsRepository: ContactsRepository
+    private val contactsRepository: ContactsRepository,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(NewLoanUiState())
@@ -124,7 +134,7 @@ class NewLoanViewModel @Inject constructor(
     }
 
     fun toggleContactPicker(show: Boolean) {
-        _uiState.update { it.copy(showContactPicker = show) }
+        _uiState.update { it.copy(showContactPicker = show, contactSearchQuery = "") }
         if (show) loadContacts()
     }
 
@@ -173,6 +183,39 @@ class NewLoanViewModel @Inject constructor(
                     categoria = currentState.categoria
                 )
                 repository.insertLoan(newLoan)
+
+                // --- Programar workers de recordatorio ---
+                val workManager = WorkManager.getInstance(context)
+                val tag = newLoan.id.toString()
+                val inputData = Data.Builder()
+                    .putString(LoanReminderWorker.KEY_LOAN_ID, newLoan.id.toString())
+                    .putString(LoanReminderWorker.KEY_CONTACTO_NOMBRE, newLoan.contactoNombre)
+                    .putString(LoanReminderWorker.KEY_NOMBRE_OBJETO, newLoan.nombreObjeto)
+                    .build()
+
+                // Worker 1: 7 días antes
+                val delay7Days = (newLoan.fechaDevolucion.time - 7 * 86_400_000L) - System.currentTimeMillis()
+                if (delay7Days > 0) {
+                    val request7Days = OneTimeWorkRequestBuilder<LoanReminderWorker>()
+                        .setInputData(inputData)
+                        .setInitialDelay(delay7Days, TimeUnit.MILLISECONDS)
+                        .addTag(tag)
+                        .build()
+                    workManager.enqueue(request7Days)
+                }
+
+                // Worker 2: día de vencimiento
+                val delayDue = newLoan.fechaDevolucion.time - System.currentTimeMillis()
+                if (delayDue > 0) {
+                    val requestDue = OneTimeWorkRequestBuilder<LoanReminderWorker>()
+                        .setInputData(inputData)
+                        .setInitialDelay(delayDue, TimeUnit.MILLISECONDS)
+                        .addTag(tag)
+                        .build()
+                    workManager.enqueue(requestDue)
+                }
+                // --- Fin workers ---
+
                 _uiState.update { it.copy(isSaving = false, saveSuccess = true) }
             } catch (e: Exception) {
                 Log.e("NewLoanVM", "Error al guardar préstamo", e)
@@ -183,5 +226,9 @@ class NewLoanViewModel @Inject constructor(
 
     fun clearErrorMessage() {
         _uiState.update { it.copy(errorMessage = null) }
+    }
+
+    fun onContactSearchQueryChange(query: String) {
+        _uiState.update { it.copy(contactSearchQuery = query) }
     }
 }

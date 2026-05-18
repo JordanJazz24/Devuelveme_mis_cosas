@@ -1,7 +1,9 @@
 package com.example.devuelveme_mis_cosas.presentation.loan_detail
 
+import android.Manifest
 import android.net.Uri
 import android.os.Environment
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -37,10 +39,12 @@ fun LoanDetailScreen(
     viewModel: LoanDetailViewModel = hiltViewModel()
 ) {
     val loan by viewModel.loan.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     val dateFormatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+    val snackbarHostState = remember { SnackbarHostState() }
     
-    // Usamos rememberSaveable para que la URI no se pierda al recrear la actividad (cámara)
+    // URI temporal para la captura de devolución, persistente a recreaciones
     var tempPhotoUriString by rememberSaveable { mutableStateOf<String?>(null) }
     var showDeleteDialog by remember { mutableStateOf(false) }
 
@@ -52,7 +56,32 @@ fun LoanDetailScreen(
         }
     }
 
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            try {
+                val photoFile = File(context.getExternalFilesDir(Environment.DIRECTORY_PICTURES), "return_${System.currentTimeMillis()}.jpg")
+                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", photoFile)
+                tempPhotoUriString = uri.toString()
+                cameraLauncher.launch(uri)
+            } catch (e: Exception) {
+                Toast.makeText(context, "Error al preparar la cámara", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            Toast.makeText(context, "Permiso de cámara denegado", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    LaunchedEffect(uiState.reminderMessage) {
+        uiState.reminderMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearReminderMessage()
+        }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Detalle del Préstamo") },
@@ -133,13 +162,12 @@ fun LoanDetailScreen(
 
                 if (entity.estado == LoanStatus.ACTIVO) {
                     Button(
-                        onClick = { viewModel.sendReminder(context) },
+                        onClick = { viewModel.sendReminder() },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text("Recordar por WhatsApp")
                     }
 
-                    // Opción 1: Devolver sin foto (Nuevo requerimiento)
                     FilledTonalButton(
                         onClick = { viewModel.markAsReturned(null) },
                         modifier = Modifier.fillMaxWidth()
@@ -149,26 +177,13 @@ fun LoanDetailScreen(
                         Text("Marcar como Devuelto (Sin Foto)")
                     }
 
-                    // Opción 2: Devolver con foto
                     OutlinedButton(
-                        onClick = {
-                            val photoFile = File(
-                                context.getExternalFilesDir(Environment.DIRECTORY_PICTURES),
-                                "return_${System.currentTimeMillis()}.jpg"
-                            )
-                            val uri = FileProvider.getUriForFile(
-                                context,
-                                "${context.packageName}.fileprovider",
-                                photoFile
-                            )
-                            tempPhotoUriString = uri.toString()
-                            cameraLauncher.launch(uri)
-                        },
+                        onClick = { cameraPermissionLauncher.launch(Manifest.permission.CAMERA) },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(Icons.Default.CameraAlt, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
-                        Text("Capturar Foto y Finalizar")
+                        Text("Capturar Foto y Marcar como Devuelto")
                     }
                 }
             }

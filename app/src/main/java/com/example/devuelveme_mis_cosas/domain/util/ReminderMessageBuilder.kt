@@ -9,6 +9,6 @@ object ReminderMessageBuilder {
         val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
         val dateStr = dateFormat.format(loan.fechaDevolucion)
         
-        return "¡Hola ${loan.contactoNombre}! Te escribo para recordarte amigablemente sobre el préstamo de: '${loan.nombreObjeto}'. Según mis notas, la fecha de devolución era el $dateStr. ¿Cuándo te vendría bien devolvérmelo? ¡Gracias!"
+        return "¡Hola ${loan.contactoNombre}! Te escribo para recordarte sobre el préstamo de: '${loan.nombreObjeto}'. Según mis notas, la fecha de devolución era el $dateStr. ¿Cuándo te vendría bien devolvérmelo? ¡Gracias!"
     }
 }

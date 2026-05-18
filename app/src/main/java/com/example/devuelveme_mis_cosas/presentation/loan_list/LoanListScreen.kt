@@ -30,7 +30,7 @@ import java.util.concurrent.TimeUnit
 fun LoanListScreen(
     onNavigateToNewLoan: () -> Unit,
     onNavigateToDetail: (UUID) -> Unit,
-    onNavigateToHistory: () -> Unit,
+    onNavigateToHistory: () -> Unit, // Añadido
     viewModel: LoanListViewModel = hiltViewModel()
 ) {
     val loans by viewModel.activeLoans.collectAsState()
