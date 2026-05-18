@@ -2,6 +2,7 @@ package com.example.devuelveme_mis_cosas.presentation.new_loan
 
 import android.content.Context
 import android.net.Uri
+import android.provider.ContactsContract
 import android.util.Log
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
@@ -18,8 +19,10 @@ import com.example.devuelveme_mis_cosas.domain.repository.LoanRepository
 import com.example.devuelveme_mis_cosas.work.LoanReminderWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Calendar
 import java.util.Date
 import java.util.TimeZone
@@ -133,19 +136,54 @@ class NewLoanViewModel @Inject constructor(
         _uiState.update { it.copy(photoUri = uri) }
     }
 
-    fun toggleContactPicker(show: Boolean) {
-        _uiState.update { it.copy(showContactPicker = show, contactSearchQuery = "") }
-        if (show) loadContacts()
-    }
+    fun onContactPicked(uri: Uri) {
+        viewModelScope.launch {
+            try {
+                val contactInfo = withContext(Dispatchers.IO) {
+                    var name: String? = null
+                    var phone: String? = null
+                    var photo: String? = null
+                    
+                    context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                        if (cursor.moveToFirst()) {
+                            val idIndex = cursor.getColumnIndex(ContactsContract.Contacts._ID)
+                            val nameIndex = cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME)
+                            val id = if (idIndex >= 0) cursor.getString(idIndex) else null
+                            name = if (nameIndex >= 0) cursor.getString(nameIndex) else null
+                            
+                            // Query phone number
+                            id?.let { contactId ->
+                                context.contentResolver.query(
+                                    ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                                    null,
+                                    ContactsContract.CommonDataKinds.Phone.CONTACT_ID + " = ?",
+                                    arrayOf(contactId),
+                                    null
+                                )?.use { phoneCursor ->
+                                    if (phoneCursor.moveToFirst()) {
+                                        val phoneIndex = phoneCursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                                        val photoIndex = phoneCursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.PHOTO_THUMBNAIL_URI)
+                                        phone = if (phoneIndex >= 0) phoneCursor.getString(phoneIndex) else null
+                                        photo = if (photoIndex >= 0) phoneCursor.getString(photoIndex) else null
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Triple(name, phone, photo)
+                }
 
-    fun onContactSelected(contact: Contact) {
-        _uiState.update {
-            it.copy(
-                contactoNombre = contact.name,
-                contactoTelefono = contact.phoneNumber ?: "",
-                contactoPhotoUri = contact.photoUri,
-                showContactPicker = false
-            )
+                _uiState.update {
+                    it.copy(
+                        contactoNombre = contactInfo.first ?: it.contactoNombre,
+                        contactoTelefono = contactInfo.second ?: it.contactoTelefono,
+                        contactoPhotoUri = contactInfo.third ?: it.contactoPhotoUri
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e("NewLoanVM", "Error picking contact", e)
+                _uiState.update { it.copy(errorMessage = "Error al obtener contacto") }
+            }
         }
     }
 

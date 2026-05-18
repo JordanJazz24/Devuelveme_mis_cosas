@@ -26,7 +26,8 @@ import javax.inject.Inject
 
 data class LoanDetailUiState(
     val reminderMessage: String? = null,
-    val reminderError: Boolean = false
+    val reminderError: Boolean = false,
+    val saveSuccess: Boolean = false
 )
 
 @HiltViewModel
@@ -132,6 +133,7 @@ class LoanDetailViewModel @Inject constructor(
             )
             // Cancelar recordatorios futuros
             WorkManager.getInstance(context).cancelAllWorkByTag(loanId.toString())
+            _uiState.update { it.copy(saveSuccess = true) }
         }
     }
 

@@ -28,6 +28,7 @@ import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import com.example.devuelveme_mis_cosas.data.local.LoanStatus
+import com.example.devuelveme_mis_cosas.presentation.components.PermissionDialog
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -47,6 +48,7 @@ fun LoanDetailScreen(
     // URI temporal para la captura de devolución, persistente a recreaciones
     var tempPhotoUriString by rememberSaveable { mutableStateOf<String?>(null) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showCameraRationale by remember { mutableStateOf(false) }
 
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
@@ -69,7 +71,13 @@ fun LoanDetailScreen(
                 Toast.makeText(context, "Error al preparar la cámara", Toast.LENGTH_SHORT).show()
             }
         } else {
-            Toast.makeText(context, "Permiso de cámara denegado", Toast.LENGTH_SHORT).show()
+            showCameraRationale = true
+        }
+    }
+
+    LaunchedEffect(uiState.saveSuccess) {
+        if (uiState.saveSuccess) {
+            onNavigateBack()
         }
     }
 
@@ -208,6 +216,18 @@ fun LoanDetailScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) { Text("Cancelar") }
+            }
+        )
+    }
+
+    if (showCameraRationale) {
+        PermissionDialog(
+            permissionName = "Cámara",
+            rationale = "Necesitamos acceso a la cámara para capturar la evidencia de que el objeto ha sido devuelto correctamente.",
+            onDismiss = { showCameraRationale = false },
+            onConfirm = {
+                showCameraRationale = false
+                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
             }
         )
     }

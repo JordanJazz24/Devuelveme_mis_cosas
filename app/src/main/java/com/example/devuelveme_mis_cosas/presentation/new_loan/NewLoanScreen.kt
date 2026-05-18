@@ -36,6 +36,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import com.example.devuelveme_mis_cosas.data.local.LoanCategory
 import com.example.devuelveme_mis_cosas.domain.model.Contact
+import com.example.devuelveme_mis_cosas.presentation.components.PermissionDialog
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -52,7 +53,6 @@ fun NewLoanScreen(
     val context = LocalContext.current
     val dateFormatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
     val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
 
     var showLoanDatePicker by remember { mutableStateOf(false) }
     var showDueDatePicker by remember { mutableStateOf(false) }
@@ -60,15 +60,22 @@ fun NewLoanScreen(
     var tempPhotoUriString by rememberSaveable { mutableStateOf<String?>(null) }
     var showCategoryMenu by remember { mutableStateOf(false) }
 
+    var showCameraRationale by remember { mutableStateOf(false) }
+    var showContactsRationale by remember { mutableStateOf(false) }
+
+    val contactPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickContact()
+    ) { uri ->
+        if (uri != null) viewModel.onContactPicked(uri)
+    }
+
     val contactPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
-            viewModel.toggleContactPicker(true)
+            contactPickerLauncher.launch(null)
         } else {
-            scope.launch {
-                snackbarHostState.showSnackbar("Permiso de contactos denegado. Puedes escribir el nombre manualmente.")
-            }
+            showContactsRationale = true
         }
     }
 
@@ -93,9 +100,7 @@ fun NewLoanScreen(
             tempPhotoUriString = uri.toString()
             cameraLauncher.launch(uri)
         } else {
-            scope.launch {
-                snackbarHostState.showSnackbar("Permiso de cámara denegado. Puedes seleccionar una foto desde la galería.")
-            }
+            showCameraRationale = true
         }
     }
 
@@ -260,17 +265,6 @@ fun NewLoanScreen(
         }
     }
 
-    // Dialogs
-    if (uiState.showContactPicker) {
-        ContactPickerDialog(
-            contacts = uiState.contacts,
-            onContactSelected = viewModel::onContactSelected,
-            onDismiss = { viewModel.toggleContactPicker(false) },
-            searchQuery = uiState.contactSearchQuery,
-            onSearchQueryChange = viewModel::onContactSearchQueryChange
-        )
-    }
-
     if (showLoanDatePicker) {
         DatePickerModal(
             initialDate = viewModel.getUtcMillis(uiState.fechaPrestamo),
@@ -284,6 +278,30 @@ fun NewLoanScreen(
             initialDate = viewModel.getUtcMillis(uiState.fechaDevolucion),
             onDateSelected = { viewModel.onFechaDevolucionChange(it) },
             onDismiss = { showDueDatePicker = false }
+        )
+    }
+
+    if (showCameraRationale) {
+        PermissionDialog(
+            permissionName = "Cámara",
+            rationale = "Necesitamos acceso a la cámara para que puedas tomar fotos de los objetos que prestas y tener una evidencia visual.",
+            onDismiss = { showCameraRationale = false },
+            onConfirm = {
+                showCameraRationale = false
+                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+            }
+        )
+    }
+
+    if (showContactsRationale) {
+        PermissionDialog(
+            permissionName = "Contactos",
+            rationale = "El acceso a los contactos permite seleccionar rápidamente a quién le prestas algo, ahorrándote tiempo al escribir sus datos.",
+            onDismiss = { showContactsRationale = false },
+            onConfirm = {
+                showContactsRationale = false
+                contactPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+            }
         )
     }
 }
@@ -312,87 +330,4 @@ fun DatePickerModal(initialDate: Long, onDateSelected: (Long) -> Unit, onDismiss
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
     ) { DatePicker(state = datePickerState) }
-}
-
-@Composable
-fun ContactPickerDialog(
-    contacts: List<Contact>,
-    onContactSelected: (Contact) -> Unit,
-    onDismiss: () -> Unit,
-    searchQuery: String = "",
-    onSearchQueryChange: (String) -> Unit = {}
-) {
-    val filteredContacts = remember(contacts, searchQuery) {
-        if (searchQuery.isBlank()) {
-            contacts
-        } else {
-            val q = searchQuery.lowercase().trim()
-            contacts.filter {
-                it.name.lowercase().contains(q) ||
-                        it.phoneNumber?.contains(q) == true
-            }
-        }
-    }
-
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.8f),
-            shape = MaterialTheme.shapes.large
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Seleccionar Contacto", style = MaterialTheme.typography.headlineSmall)
-                Spacer(modifier = Modifier.height(12.dp))
-
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = onSearchQueryChange,
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Busca un nombre o número de teléfono") },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = "Buscar"
-                        )
-                    },
-                    trailingIcon = {
-                        if (searchQuery.isNotBlank()) {
-                            IconButton(onClick = { onSearchQueryChange("") }) {
-                                Icon(Icons.Default.Clear, contentDescription = "Limpiar")
-                            }
-                        }
-                    },
-                    singleLine = true,
-                    shape = MaterialTheme.shapes.medium
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                LazyColumn {
-                    items(filteredContacts) { contact ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onContactSelected(contact) }
-                                .padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            AsyncImage(
-                                model = contact.photoUri,
-                                contentDescription = null,
-                                modifier = Modifier.size(40.dp).clip(CircleShape),
-                                contentScale = ContentScale.Crop
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column {
-                                Text(contact.name, style = MaterialTheme.typography.bodyLarge)
-                                contact.phoneNumber?.let {
-                                    Text(it, style = MaterialTheme.typography.bodySmall)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
 }

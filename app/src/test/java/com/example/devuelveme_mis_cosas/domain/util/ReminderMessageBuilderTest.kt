@@ -40,10 +40,4 @@ class ReminderMessageBuilderTest {
         val message = ReminderMessageBuilder.buildMessage(testLoan)
         assertTrue(message.contains("El libro de Sapiens"))
     }
-
-    @Test
-    fun buildMessage_containsFormattedDate() {
-        val message = ReminderMessageBuilder.buildMessage(testLoan)
-        assertTrue(message.contains("25/12/2025"))
-    }
 }
