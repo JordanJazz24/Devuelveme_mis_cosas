@@ -46,11 +46,12 @@ fun LoanListScreen(
 
     Scaffold(
         topBar = {
-            LargeTopAppBar(
+            TopAppBar(
                 title = { 
                     Text(
                         "Préstamos Activos",
-                        style = MaterialTheme.typography.headlineMedium
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
                     ) 
                 },
                 actions = {
@@ -62,7 +63,7 @@ fun LoanListScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.largeTopAppBarColors(
+                colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
                     scrolledContainerColor = MaterialTheme.colorScheme.surface
                 )
