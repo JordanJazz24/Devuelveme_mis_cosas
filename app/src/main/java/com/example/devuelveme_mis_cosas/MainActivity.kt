@@ -1,6 +1,7 @@
 package com.example.devuelveme_mis_cosas
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
@@ -18,6 +19,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
@@ -31,6 +33,7 @@ import com.example.devuelveme_mis_cosas.presentation.loan_detail.LoanDetailScree
 import com.example.devuelveme_mis_cosas.presentation.loan_list.LoanListScreen
 import com.example.devuelveme_mis_cosas.presentation.navigation.Screen
 import com.example.devuelveme_mis_cosas.presentation.new_loan.NewLoanScreen
+import com.example.devuelveme_mis_cosas.presentation.settings.SettingsScreen
 import com.example.devuelveme_mis_cosas.ui.theme.Devuelveme_mis_cosasTheme
 import com.example.devuelveme_mis_cosas.work.LoanReminderWorker
 import dagger.hilt.android.AndroidEntryPoint
@@ -38,7 +41,7 @@ import java.util.UUID
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    
+
     private val intentState = mutableStateOf<Intent?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -46,7 +49,10 @@ class MainActivity : ComponentActivity() {
         intentState.value = intent
         enableEdgeToEdge()
         setContent {
-            Devuelveme_mis_cosasTheme {
+            val prefs = getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+            var isDarkMode by remember { mutableStateOf(prefs.getBoolean("dark_mode", false)) }
+
+            Devuelveme_mis_cosasTheme(darkTheme = isDarkMode) {
                 // Solicitar permiso de notificaciones en Android 13+
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     val permissionLauncher = rememberLauncherForActivityResult(
@@ -58,7 +64,16 @@ class MainActivity : ComponentActivity() {
                 }
 
                 val currentIntent by intentState
-                AppNavigation(currentIntent)
+                val onToggleDarkMode = {
+                    isDarkMode = !isDarkMode
+                    prefs.edit().putBoolean("dark_mode", isDarkMode).apply()
+                }
+
+                AppNavigation(
+                    intent = currentIntent,
+                    isDarkMode = isDarkMode,
+                    onToggleDarkMode = onToggleDarkMode
+                )
             }
         }
     }
@@ -70,7 +85,11 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun AppNavigation(intent: Intent?) {
+fun AppNavigation(
+    intent: Intent?,
+    isDarkMode: Boolean,
+    onToggleDarkMode: () -> Unit
+) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -122,13 +141,13 @@ fun AppNavigation(intent: Intent?) {
         NavHost(
             navController = navController,
             startDestination = Screen.LoanList.route,
-            modifier = androidx.compose.ui.Modifier.padding(paddingValues)
+            modifier = Modifier.padding(paddingValues)
         ) {
             composable(Screen.LoanList.route) {
                 LoanListScreen(
                     onNavigateToNewLoan = { navController.navigate(Screen.NewLoan.route) },
                     onNavigateToDetail = { loanId -> navController.navigate(Screen.LoanDetail.createRoute(loanId)) },
-                    onNavigateToHistory = { navController.navigate(Screen.History.route) }
+                    onNavigateToSettings = { navController.navigate(Screen.Settings.route) }
                 )
             }
             composable(Screen.NewLoan.route) {
@@ -137,6 +156,13 @@ fun AppNavigation(intent: Intent?) {
             composable(Screen.History.route) {
                 HistoryScreen(
                     onNavigateToDetail = { loanId -> navController.navigate(Screen.LoanDetail.createRoute(loanId)) }
+                )
+            }
+            composable(Screen.Settings.route) {
+                SettingsScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    isDarkMode = isDarkMode,
+                    onToggleDarkMode = onToggleDarkMode
                 )
             }
             composable(
