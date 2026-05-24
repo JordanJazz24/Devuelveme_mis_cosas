@@ -12,12 +12,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.ContactPage
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
@@ -29,6 +31,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.core.content.FileProvider
@@ -144,6 +147,14 @@ fun NewLoanScreen(
                 isError = uiState.nombreObjeto.isBlank() && uiState.errorMessage != null
             )
 
+            OutlinedTextField(
+                value = uiState.notes,
+                onValueChange = viewModel::onNotesChange,
+                label = { Text("Notas adicionales (opcional)") },
+                modifier = Modifier.fillMaxWidth(),
+                maxLines = 4
+            )
+
             ExposedDropdownMenuBox(
                 expanded = showCategoryMenu,
                 onExpandedChange = { showCategoryMenu = !showCategoryMenu }
@@ -172,37 +183,100 @@ fun NewLoanScreen(
                 }
             }
 
-            // Contact Picker Section
+            // Contact Section - Conditional UI based on contactEnteredManually
             OutlinedCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Contacto *", style = MaterialTheme.typography.titleMedium)
-                        IconButton(onClick = {
-                            contactPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
-                        }) {
-                            Icon(Icons.Default.ContactPage, contentDescription = "Seleccionar contacto")
-                        }
-                    }
-                    if (uiState.contactoNombre.isNotBlank()) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (uiState.contactoPhotoUri != null) {
-                                AsyncImage(
-                                    model = uiState.contactoPhotoUri,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(40.dp).clip(CircleShape),
-                                    contentScale = ContentScale.Crop
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
+                    Text("Contacto *", style = MaterialTheme.typography.titleMedium)
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    if (!uiState.contactEnteredManually) {
+                        // Mode: Contact Picker
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            if (uiState.contactoNombre.isNotBlank()) {
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                    if (uiState.contactoPhotoUri != null) {
+                                        AsyncImage(
+                                            model = uiState.contactoPhotoUri,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(40.dp).clip(CircleShape),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                    }
+                                    Column {
+                                        Text(uiState.contactoNombre, fontWeight = FontWeight.Bold)
+                                        if (uiState.contactoTelefono.isNotBlank()) {
+                                            Text(uiState.contactoTelefono, style = MaterialTheme.typography.bodySmall)
+                                        }
+                                    }
+                                }
+                            } else {
+                                Text("Selecciona un contacto", style = MaterialTheme.typography.bodySmall)
                             }
-                            Column {
-                                Text(uiState.contactoNombre, fontWeight = FontWeight.Bold)
+                            IconButton(onClick = {
+                                contactPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+                            }) {
+                                Icon(Icons.Default.ContactPage, contentDescription = "Seleccionar contacto")
+                            }
+                        }
+                    } else {
+                        // Mode: Manual Entry
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(40.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(uiState.contactoNombre.ifBlank { "Nombre no ingresado" }, fontWeight = FontWeight.Bold)
                                 if (uiState.contactoTelefono.isNotBlank()) {
                                     Text(uiState.contactoTelefono, style = MaterialTheme.typography.bodySmall)
                                 }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = uiState.contactoNombre,
+                            onValueChange = viewModel::onContactoNombreChange,
+                            label = { Text("Nombre del prestatario *") },
+                            modifier = Modifier.fillMaxWidth(),
+                            isError = uiState.contactoNombre.isBlank() && uiState.errorMessage != null
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = uiState.contactoTelefono,
+                            onValueChange = viewModel::onContactoTelefonoChange,
+                            label = { Text("Número de teléfono *") },
+                            modifier = Modifier.fillMaxWidth(),
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone
+                            ),
+                            isError = uiState.contactoTelefono.isBlank() && uiState.errorMessage != null
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        if (!uiState.contactEnteredManually) {
+                            TextButton(
+                                onClick = { viewModel.onContactManualToggle(true) },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("Ingresar manualmente", fontSize = MaterialTheme.typography.labelSmall.fontSize)
+                            }
+                        } else {
+                            TextButton(
+                                onClick = { viewModel.onContactManualToggle(false) },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("Seleccionar de contactos", fontSize = MaterialTheme.typography.labelSmall.fontSize)
                             }
                         }
                     }

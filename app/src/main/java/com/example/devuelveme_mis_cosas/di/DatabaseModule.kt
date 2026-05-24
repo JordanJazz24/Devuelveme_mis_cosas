@@ -27,7 +27,7 @@ object DatabaseModule {
             LoanDatabase::class.java,
             "devuelveme_mis_cosas_db"
         )
-        .fallbackToDestructiveMigration()
+        .addMigrations(LoanDatabase.MIGRATION_1_2)
         .build()
     }
 
