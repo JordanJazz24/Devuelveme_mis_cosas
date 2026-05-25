@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -33,6 +34,7 @@ import com.example.devuelveme_mis_cosas.presentation.loan_detail.LoanDetailScree
 import com.example.devuelveme_mis_cosas.presentation.loan_list.LoanListScreen
 import com.example.devuelveme_mis_cosas.presentation.navigation.Screen
 import com.example.devuelveme_mis_cosas.presentation.new_loan.NewLoanScreen
+import com.example.devuelveme_mis_cosas.presentation.reputation.ReputationScreen
 import com.example.devuelveme_mis_cosas.presentation.settings.SettingsScreen
 import com.example.devuelveme_mis_cosas.ui.theme.Devuelveme_mis_cosasTheme
 import com.example.devuelveme_mis_cosas.work.LoanReminderWorker
@@ -52,8 +54,13 @@ class MainActivity : ComponentActivity() {
             val prefs = getSharedPreferences("app_settings", Context.MODE_PRIVATE)
             var isDarkMode by remember { mutableStateOf(prefs.getBoolean("dark_mode", false)) }
 
+            val onToggleDarkMode = {
+                val newValue = !isDarkMode
+                isDarkMode = newValue
+                prefs.edit().putBoolean("dark_mode", isDarkMode).apply()
+            }
+
             Devuelveme_mis_cosasTheme(darkTheme = isDarkMode) {
-                // Solicitar permiso de notificaciones en Android 13+
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     val permissionLauncher = rememberLauncherForActivityResult(
                         ActivityResultContracts.RequestPermission()
@@ -64,11 +71,6 @@ class MainActivity : ComponentActivity() {
                 }
 
                 val currentIntent by intentState
-                val onToggleDarkMode = {
-                    isDarkMode = !isDarkMode
-                    prefs.edit().putBoolean("dark_mode", isDarkMode).apply()
-                }
-
                 AppNavigation(
                     intent = currentIntent,
                     isDarkMode = isDarkMode,
@@ -94,31 +96,24 @@ fun AppNavigation(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    // Manejo de Deep Link desde Notificación
     LaunchedEffect(intent) {
         intent?.getStringExtra(LoanReminderWorker.KEY_LOAN_ID)?.let { loanId ->
             navController.navigate(Screen.LoanDetail.createRoute(UUID.fromString(loanId)))
-            // Limpiar el extra para evitar re-navegación en recomposición
             intent.removeExtra(LoanReminderWorker.KEY_LOAN_ID)
         }
     }
 
     val bottomTabs = listOf(
-        BottomNavTab(
-            route = Screen.LoanList.route,
-            icon = Icons.Default.List,
-            label = "Préstamos"
-        ),
-        BottomNavTab(
-            route = Screen.History.route,
-            icon = Icons.Default.History,
-            label = "Historial"
-        )
+        BottomNavTab(Screen.LoanList.route, Icons.Default.List, "Préstamos"),
+        BottomNavTab(Screen.History.route, Icons.Default.History, "Historial"),
+        BottomNavTab(Screen.Reputation.route, Icons.Default.Star, "Reputación")
     )
 
     Scaffold(
         bottomBar = {
-            if (currentRoute == Screen.LoanList.route || currentRoute == Screen.History.route) {
+            if (currentRoute == Screen.LoanList.route || 
+                currentRoute == Screen.History.route || 
+                currentRoute == Screen.Reputation.route) {
                 NavigationBar {
                     bottomTabs.forEach { tab ->
                         NavigationBarItem(
@@ -158,6 +153,9 @@ fun AppNavigation(
                     onNavigateToDetail = { loanId -> navController.navigate(Screen.LoanDetail.createRoute(loanId)) }
                 )
             }
+            composable(Screen.Reputation.route) {
+                ReputationScreen()
+            }
             composable(Screen.Settings.route) {
                 SettingsScreen(
                     onNavigateBack = { navController.popBackStack() },
@@ -175,8 +173,4 @@ fun AppNavigation(
     }
 }
 
-private data class BottomNavTab(
-    val route: String,
-    val icon: ImageVector,
-    val label: String
-)
+private data class BottomNavTab(val route: String, val icon: ImageVector, val label: String)

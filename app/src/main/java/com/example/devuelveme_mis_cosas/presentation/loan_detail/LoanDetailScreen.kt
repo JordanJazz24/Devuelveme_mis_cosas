@@ -12,8 +12,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.ThumbUp
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -42,17 +46,19 @@ fun LoanDetailScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     val dateFormatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+    
+    // Declaración al inicio para evitar errores de referencia en LaunchedEffect
     val snackbarHostState = remember { SnackbarHostState() }
     
-    // URI temporal para la captura de devolución, persistente a recreaciones
     var tempPhotoUriString by rememberSaveable { mutableStateOf<String?>(null) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showReturnConditionSheet by remember { mutableStateOf(false) }
 
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
         if (success && tempPhotoUriString != null) {
-            viewModel.markAsReturned(tempPhotoUriString)
+            showReturnConditionSheet = true
         }
     }
 
@@ -107,7 +113,6 @@ fun LoanDetailScreen(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Fotos
                 Row(modifier = Modifier.fillMaxWidth().height(200.dp)) {
                     LoanPhoto(
                         uri = entity.photoLoanUri,
@@ -153,6 +158,30 @@ fun LoanDetailScreen(
                     label = if (entity.estado == LoanStatus.ACTIVO) "Fecha esperada" else "Fecha de devolución",
                     value = dateFormatter.format(entity.fechaDevolucion)
                 )
+
+                // Notas Adicionales (Requerimiento)
+                if (!entity.notes.isNullOrBlank()) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        )
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "Notas",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = entity.notes ?: "",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+                }
                 
                 if (entity.reminderCount > 0) {
                     DetailItem(label = "Recordatorios enviados", value = entity.reminderCount.toString())
@@ -169,7 +198,10 @@ fun LoanDetailScreen(
                     }
 
                     FilledTonalButton(
-                        onClick = { viewModel.markAsReturned(null) },
+                        onClick = {
+                            tempPhotoUriString = null
+                            showReturnConditionSheet = true
+                        },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(Icons.Default.Check, contentDescription = null)
@@ -178,7 +210,9 @@ fun LoanDetailScreen(
                     }
 
                     OutlinedButton(
-                        onClick = { cameraPermissionLauncher.launch(Manifest.permission.CAMERA) },
+                        onClick = { 
+                            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                        },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(Icons.Default.CameraAlt, contentDescription = null)
@@ -210,6 +244,75 @@ fun LoanDetailScreen(
                 TextButton(onClick = { showDeleteDialog = false }) { Text("Cancelar") }
             }
         )
+    }
+
+    if (showReturnConditionSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showReturnConditionSheet = false }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    "¿En qué condición fue devuelto?",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+
+                ReturnConditionButton(
+                    icon = Icons.Default.Star,
+                    label = "EXCELENTE",
+                    description = "El artículo se devolvió en perfectas condiciones",
+                    backgroundColor = androidx.compose.ui.graphics.Color(0xFF4CAF50),
+                    onClick = {
+                        viewModel.markAsReturnedWithCondition(tempPhotoUriString, "EXCELENTE")
+                        showReturnConditionSheet = false
+                        onNavigateBack()
+                    }
+                )
+
+                ReturnConditionButton(
+                    icon = Icons.Default.ThumbUp,
+                    label = "BUENO",
+                    description = "El artículo está en buen estado",
+                    backgroundColor = androidx.compose.ui.graphics.Color(0xFF2196F3),
+                    onClick = {
+                        viewModel.markAsReturnedWithCondition(tempPhotoUriString, "BUENO")
+                        showReturnConditionSheet = false
+                        onNavigateBack()
+                    }
+                )
+
+                ReturnConditionButton(
+                    icon = Icons.Default.Warning,
+                    label = "MALO",
+                    description = "El artículo fue devuelto con daños",
+                    backgroundColor = androidx.compose.ui.graphics.Color(0xFFFFA500),
+                    onClick = {
+                        viewModel.markAsReturnedWithCondition(tempPhotoUriString, "MALO")
+                        showReturnConditionSheet = false
+                        onNavigateBack()
+                    }
+                )
+
+                ReturnConditionButton(
+                    icon = Icons.Default.Cancel,
+                    label = "NUNCA DEVUELTO",
+                    description = "El artículo nunca fue devuelto",
+                    backgroundColor = androidx.compose.ui.graphics.Color(0xFFD32F2F),
+                    onClick = {
+                        viewModel.markAsReturnedWithCondition(tempPhotoUriString, "NUNCA_DEVUELTO")
+                        showReturnConditionSheet = false
+                        onNavigateBack()
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+        }
     }
 }
 
@@ -246,5 +349,32 @@ fun DetailItem(label: String, value: String) {
     Column {
         Text(text = label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
         Text(text = value, style = MaterialTheme.typography.bodyLarge)
+    }
+}
+
+@Composable
+fun ReturnConditionButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    description: String,
+    backgroundColor: androidx.compose.ui.graphics.Color,
+    onClick: () -> Unit
+) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        colors = ButtonDefaults.buttonColors(containerColor = backgroundColor)
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            modifier = Modifier.size(24.dp),
+            tint = androidx.compose.ui.graphics.Color.White
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(label, fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color.White)
+            Text(description, style = MaterialTheme.typography.bodySmall, color = androidx.compose.ui.graphics.Color.White)
+        }
     }
 }

@@ -23,4 +23,7 @@ interface LoanDao {
 
     @Query("SELECT * FROM loans WHERE id = :id")
     fun getLoanById(id: UUID): Flow<LoanEntity>
+
+    @Query("SELECT * FROM loans WHERE contactoTelefono = :phoneNumber ORDER BY fechaPrestamo DESC")
+    fun getLoansForContact(phoneNumber: String): Flow<List<LoanEntity>>
 }
