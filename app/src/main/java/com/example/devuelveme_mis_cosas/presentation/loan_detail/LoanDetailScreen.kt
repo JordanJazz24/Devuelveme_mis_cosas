@@ -24,6 +24,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -46,8 +47,6 @@ fun LoanDetailScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     val dateFormatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-    
-    // Declaración al inicio para evitar errores de referencia en LaunchedEffect
     val snackbarHostState = remember { SnackbarHostState() }
     
     var tempPhotoUriString by rememberSaveable { mutableStateOf<String?>(null) }
@@ -129,22 +128,48 @@ fun LoanDetailScreen(
                     }
                 }
 
-                Text(
-                    text = entity.nombreObjeto,
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                
-                AssistChip(
-                    onClick = { },
-                    label = { Text(entity.estado.name) },
-                    colors = AssistChipDefaults.assistChipColors(
-                        containerColor = if (entity.estado == LoanStatus.ACTIVO) 
-                            MaterialTheme.colorScheme.primaryContainer 
-                        else 
-                            MaterialTheme.colorScheme.secondaryContainer
+                Column {
+                    Text(
+                        text = entity.nombreObjeto,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold
                     )
-                )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        AssistChip(
+                            onClick = { },
+                            label = { Text(entity.estado.name) },
+                            colors = AssistChipDefaults.assistChipColors(
+                                containerColor = if (entity.estado == LoanStatus.ACTIVO) 
+                                    MaterialTheme.colorScheme.primaryContainer 
+                                else 
+                                    MaterialTheme.colorScheme.secondaryContainer
+                            )
+                        )
+
+                        // PROBLEMA 1: Mostrar condición de devolución
+                        if (entity.estado == LoanStatus.DEVUELTO && entity.returnCondition != null) {
+                            val conditionColor = when(entity.returnCondition) {
+                                "EXCELENTE" -> Color(0xFF27AE60)
+                                "BUENO" -> Color(0xFF2980B9)
+                                "MALO" -> Color(0xFFE67E22)
+                                "NUNCA_DEVUELTO" -> Color(0xFFC0392B)
+                                else -> MaterialTheme.colorScheme.secondary
+                            }
+                            
+                            AssistChip(
+                                onClick = { },
+                                label = { Text(entity.returnCondition) },
+                                colors = AssistChipDefaults.assistChipColors(
+                                    containerColor = conditionColor.copy(alpha = 0.1f),
+                                    labelColor = conditionColor
+                                )
+                            )
+                        }
+                    }
+                }
 
                 HorizontalDivider()
 
@@ -154,12 +179,14 @@ fun LoanDetailScreen(
                 }
                 DetailItem(label = "Categoría", value = entity.categoria.name)
                 DetailItem(label = "Fecha de préstamo", value = dateFormatter.format(entity.fechaPrestamo))
-                DetailItem(
-                    label = if (entity.estado == LoanStatus.ACTIVO) "Fecha esperada" else "Fecha de devolución",
-                    value = dateFormatter.format(entity.fechaDevolucion)
-                )
+                
+                // PROBLEMA 2: Mostrar fecha acordada vs fecha real
+                DetailItem(label = "Fecha límite acordada", value = dateFormatter.format(entity.fechaDevolucion))
+                
+                if (entity.fechaDevolucionReal != null) {
+                    DetailItem(label = "Fecha de devolución real", value = dateFormatter.format(entity.fechaDevolucionReal))
+                }
 
-                // Notas Adicionales (Requerimiento)
                 if (!entity.notes.isNullOrBlank()) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -176,7 +203,7 @@ fun LoanDetailScreen(
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = entity.notes ?: "",
+                                text = entity.notes,
                                 style = MaterialTheme.typography.bodyMedium
                             )
                         }
@@ -266,7 +293,7 @@ fun LoanDetailScreen(
                     icon = Icons.Default.Star,
                     label = "EXCELENTE",
                     description = "El artículo se devolvió en perfectas condiciones",
-                    backgroundColor = androidx.compose.ui.graphics.Color(0xFF4CAF50),
+                    backgroundColor = Color(0xFF4CAF50),
                     onClick = {
                         viewModel.markAsReturnedWithCondition(tempPhotoUriString, "EXCELENTE")
                         showReturnConditionSheet = false
@@ -278,7 +305,7 @@ fun LoanDetailScreen(
                     icon = Icons.Default.ThumbUp,
                     label = "BUENO",
                     description = "El artículo está en buen estado",
-                    backgroundColor = androidx.compose.ui.graphics.Color(0xFF2196F3),
+                    backgroundColor = Color(0xFF2196F3),
                     onClick = {
                         viewModel.markAsReturnedWithCondition(tempPhotoUriString, "BUENO")
                         showReturnConditionSheet = false
@@ -290,7 +317,7 @@ fun LoanDetailScreen(
                     icon = Icons.Default.Warning,
                     label = "MALO",
                     description = "El artículo fue devuelto con daños",
-                    backgroundColor = androidx.compose.ui.graphics.Color(0xFFFFA500),
+                    backgroundColor = Color(0xFFFFA500),
                     onClick = {
                         viewModel.markAsReturnedWithCondition(tempPhotoUriString, "MALO")
                         showReturnConditionSheet = false
@@ -302,7 +329,7 @@ fun LoanDetailScreen(
                     icon = Icons.Default.Cancel,
                     label = "NUNCA DEVUELTO",
                     description = "El artículo nunca fue devuelto",
-                    backgroundColor = androidx.compose.ui.graphics.Color(0xFFD32F2F),
+                    backgroundColor = Color(0xFFD32F2F),
                     onClick = {
                         viewModel.markAsReturnedWithCondition(tempPhotoUriString, "NUNCA_DEVUELTO")
                         showReturnConditionSheet = false
@@ -357,7 +384,7 @@ fun ReturnConditionButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     description: String,
-    backgroundColor: androidx.compose.ui.graphics.Color,
+    backgroundColor: Color,
     onClick: () -> Unit
 ) {
     Button(
@@ -369,12 +396,12 @@ fun ReturnConditionButton(
             icon,
             contentDescription = null,
             modifier = Modifier.size(24.dp),
-            tint = androidx.compose.ui.graphics.Color.White
+            tint = Color.White
         )
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(label, fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color.White)
-            Text(description, style = MaterialTheme.typography.bodySmall, color = androidx.compose.ui.graphics.Color.White)
+            Text(label, fontWeight = FontWeight.Bold, color = Color.White)
+            Text(description, style = MaterialTheme.typography.bodySmall, color = Color.White)
         }
     }
 }

@@ -62,6 +62,21 @@ fun ReputationScreen(viewModel: ReputationViewModel = hiltViewModel()) {
     }
 }
 
+// PROBLEMA 3: Funciones puras para el badge según el score real
+fun getBadgeLabel(score: Float): String = when {
+    score >= 4.5f -> "EXCELENTE"
+    score >= 3.0f -> "BUENO"
+    score >= 1.5f -> "MALO"
+    else          -> "PÉSIMO"
+}
+
+fun getBadgeColor(score: Float): Color = when {
+    score >= 4.5f -> Color(0xFF27AE60)  // verde
+    score >= 3.0f -> Color(0xFF2980B9)  // azul
+    score >= 1.5f -> Color(0xFFE67E22)  // naranja
+    else          -> Color(0xFFC0392B)  // rojo
+}
+
 @Composable
 private fun ReputationCard(reputation: ContactReputation) {
     OutlinedCard(
@@ -102,13 +117,9 @@ private fun ReputationCard(reputation: ContactReputation) {
                     Text(reputation.contactPhone, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
 
-                // Badge de estado coloreado (Parte B)
-                val (badgeText, badgeColor) = when {
-                    reputation.neverReturned > 0 -> "PÉSIMO" to Color(0xFFD32F2F)
-                    reputation.returnedDamaged > 0 -> "MALO" to Color(0xFFF57C00)
-                    reputation.returnedLate > 0 -> "BUENO" to Color(0xFF1976D2)
-                    else -> "EXCELENTE" to Color(0xFF388E3C)
-                }
+                // Badge calculado dinámicamente por función pura
+                val badgeText = getBadgeLabel(reputation.reputationScore)
+                val badgeColor = getBadgeColor(reputation.reputationScore)
 
                 Surface(
                     color = badgeColor.copy(alpha = 0.1f),
@@ -116,7 +127,7 @@ private fun ReputationCard(reputation: ContactReputation) {
                 ) {
                     Text(
                         text = badgeText,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.labelSmall,
                         color = badgeColor,
                         fontWeight = FontWeight.Black
@@ -126,7 +137,7 @@ private fun ReputationCard(reputation: ContactReputation) {
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Score Visual con Estrellas
+            // Score Visual
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -141,7 +152,7 @@ private fun ReputationCard(reputation: ContactReputation) {
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
-                        modifier = Modifier.size(18.dp),
+                        modifier = Modifier.size(20.dp),
                         tint = Color(0xFFFFB300)
                     )
                 }
@@ -155,7 +166,7 @@ private fun ReputationCard(reputation: ContactReputation) {
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Resumen de estadísticas (Formato solicitado Parte B)
+            // Resumen de estadísticas (Formato exacto solicitado)
             val devueltos = reputation.returnedOnTime + reputation.returnedLate + reputation.returnedDamaged
             Text(
                 text = "${reputation.totalLoans} préstamos · $devueltos devueltos · ${reputation.neverReturned} nunca devueltos",
