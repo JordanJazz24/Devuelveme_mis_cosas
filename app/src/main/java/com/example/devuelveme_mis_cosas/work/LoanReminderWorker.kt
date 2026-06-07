@@ -32,17 +32,6 @@ class LoanReminderWorker @AssistedInject constructor(
     }
 
     override suspend fun doWork(): Result {
-        val specificLoanId = inputData.getString(KEY_LOAN_ID)
-        val specificContact = inputData.getString(KEY_CONTACTO_NOMBRE)
-        val specificObject = inputData.getString(KEY_NOMBRE_OBJETO)
-
-        if (specificLoanId != null && specificContact != null && specificObject != null) {
-            // Es un recordatorio específico programado desde el ViewModel
-            sendNotification(specificLoanId, specificContact, specificObject)
-            return Result.success()
-        }
-
-        // Si no hay datos específicos, es el chequeo diario general
         // Buscamos préstamos que vencen en las próximas 24 horas
         val activeLoans = repository.getActiveLoans().first()
         val now = Calendar.getInstance()

@@ -39,6 +39,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import com.example.devuelveme_mis_cosas.data.local.LoanCategory
 import com.example.devuelveme_mis_cosas.domain.model.Contact
+import com.example.devuelveme_mis_cosas.presentation.components.FullScreenImageDialog
 import com.example.devuelveme_mis_cosas.presentation.components.PermissionDialog
 import java.io.File
 import java.text.SimpleDateFormat
@@ -62,6 +63,7 @@ fun NewLoanScreen(
     
     var tempPhotoUriString by rememberSaveable { mutableStateOf<String?>(null) }
     var showCategoryMenu by remember { mutableStateOf(false) }
+    var showFullImage by remember { mutableStateOf(false) }
 
     var showCameraRationale by remember { mutableStateOf(false) }
     var showContactsRationale by remember { mutableStateOf(false) }
@@ -311,7 +313,11 @@ fun NewLoanScreen(
                 AsyncImage(
                     model = uiState.photoUri,
                     contentDescription = "Foto del objeto",
-                    modifier = Modifier.fillMaxWidth().height(200.dp).clip(MaterialTheme.shapes.medium),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                        .clip(MaterialTheme.shapes.medium)
+                        .clickable { showFullImage = true },
                     contentScale = ContentScale.Crop
                 )
             }
@@ -376,6 +382,13 @@ fun NewLoanScreen(
                 showContactsRationale = false
                 contactPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
             }
+        )
+    }
+
+    if (showFullImage && uiState.photoUri != null) {
+        FullScreenImageDialog(
+            imageUri = uiState.photoUri.toString(),
+            onDismiss = { showFullImage = false }
         )
     }
 }

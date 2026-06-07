@@ -23,7 +23,7 @@ import coil3.compose.AsyncImage
 @Composable
 fun FullScreenImageDialog(
     imageUri: String,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     Dialog(
         onDismissRequest = onDismiss,

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -22,11 +23,17 @@ import com.example.devuelveme_mis_cosas.presentation.history.HistoryScreen
 import com.example.devuelveme_mis_cosas.presentation.loan_detail.LoanDetailScreen
 import com.example.devuelveme_mis_cosas.presentation.loan_list.LoanListScreen
 import com.example.devuelveme_mis_cosas.presentation.new_loan.NewLoanScreen
+import com.example.devuelveme_mis_cosas.presentation.reputation.ReputationScreen
+import com.example.devuelveme_mis_cosas.presentation.settings.SettingsScreen
 import com.example.devuelveme_mis_cosas.work.LoanReminderWorker
 import java.util.UUID
 
 @Composable
-fun MainScreen(intent: Intent?) {
+fun MainScreen(
+    intent: Intent?,
+    isDarkMode: Boolean,
+    onToggleDarkMode: () -> Unit
+) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -49,15 +56,22 @@ fun MainScreen(intent: Intent?) {
             route = Screen.History.route,
             icon = Icons.Default.History,
             label = "Historial"
+        ),
+        BottomNavTab(
+            route = Screen.Reputation.route,
+            icon = Icons.Default.Star,
+            label = "Reputación"
         )
     )
 
     Scaffold(
         bottomBar = {
-            if (currentRoute == Screen.LoanList.route || currentRoute == Screen.History.route) {
+            if (currentRoute == Screen.LoanList.route || 
+                currentRoute == Screen.History.route || 
+                currentRoute == Screen.Reputation.route) {
                 NavigationBar(
                     containerColor = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 4.dp // Elevación sutil para integración
+                    tonalElevation = 4.dp
                 ) {
                     bottomTabs.forEach { tab ->
                         val isSelected = currentRoute == tab.route
@@ -83,14 +97,16 @@ fun MainScreen(intent: Intent?) {
                                     style = MaterialTheme.typography.labelSmall,
                                     color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                                 ) 
-                            }
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                            )
                         )
                     }
                 }
             }
         }
-    )
-{ paddingValues ->
+    ) { paddingValues ->
         NavHost(
             navController = navController,
             startDestination = Screen.LoanList.route,
@@ -100,7 +116,7 @@ fun MainScreen(intent: Intent?) {
                 LoanListScreen(
                     onNavigateToNewLoan = { navController.navigate(Screen.NewLoan.route) },
                     onNavigateToDetail = { loanId -> navController.navigate(Screen.LoanDetail.createRoute(loanId)) },
-                    onNavigateToHistory = { navController.navigate(Screen.History.route) }
+                    onNavigateToSettings = { navController.navigate(Screen.Settings.route) }
                 )
             }
             composable(Screen.NewLoan.route) {
@@ -109,6 +125,16 @@ fun MainScreen(intent: Intent?) {
             composable(Screen.History.route) {
                 HistoryScreen(
                     onNavigateToDetail = { loanId -> navController.navigate(Screen.LoanDetail.createRoute(loanId)) }
+                )
+            }
+            composable(Screen.Reputation.route) {
+                ReputationScreen()
+            }
+            composable(Screen.Settings.route) {
+                SettingsScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    isDarkMode = isDarkMode,
+                    onToggleDarkMode = onToggleDarkMode
                 )
             }
             composable(

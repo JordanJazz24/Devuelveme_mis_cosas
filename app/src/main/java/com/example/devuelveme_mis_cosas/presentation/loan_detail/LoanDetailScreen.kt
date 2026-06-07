@@ -7,6 +7,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -14,13 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.filled.Category
-import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -38,6 +33,7 @@ import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import com.example.devuelveme_mis_cosas.data.local.LoanStatus
+import com.example.devuelveme_mis_cosas.presentation.components.FullScreenImageDialog
 import com.example.devuelveme_mis_cosas.presentation.components.PermissionDialog
 import java.io.File
 import java.text.SimpleDateFormat
@@ -54,11 +50,12 @@ fun LoanDetailScreen(
     val context = LocalContext.current
     val dateFormatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
     val snackbarHostState = remember { SnackbarHostState() }
-
+    
     var tempPhotoUriString by rememberSaveable { mutableStateOf<String?>(null) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showCameraRationale by remember { mutableStateOf(false) }
     var showReturnConditionSheet by remember { mutableStateOf(false) }
+    var selectedImageUri by remember { mutableStateOf<String?>(null) }
 
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
@@ -116,7 +113,9 @@ fun LoanDetailScreen(
                         AsyncImage(
                             model = entity.photoLoanUri,
                             contentDescription = null,
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clickable { selectedImageUri = entity.photoLoanUri },
                             contentScale = ContentScale.Crop
                         )
                     } else {
@@ -188,19 +187,42 @@ fun LoanDetailScreen(
                             color = Color.White
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        SuggestionChip(
-                            onClick = { },
-                            label = { Text(entity.estado.name) },
-                            colors = SuggestionChipDefaults.suggestionChipColors(
-                                containerColor = if (entity.estado == LoanStatus.ACTIVO)
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
-                                else
-                                    MaterialTheme.colorScheme.secondary.copy(alpha = 0.8f),
-                                labelColor = Color.White
-                            ),
-                            border = null,
-                            shape = RoundedCornerShape(12.dp)
-                        )
+                        
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            SuggestionChip(
+                                onClick = { },
+                                label = { Text(entity.estado.name) },
+                                colors = SuggestionChipDefaults.suggestionChipColors(
+                                    containerColor = if (entity.estado == LoanStatus.ACTIVO) 
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                                    else 
+                                        MaterialTheme.colorScheme.secondary.copy(alpha = 0.8f),
+                                    labelColor = Color.White
+                                ),
+                                border = null,
+                                shape = RoundedCornerShape(12.dp)
+                            )
+
+                            if (entity.estado == LoanStatus.DEVUELTO && entity.returnCondition != null) {
+                                val conditionColor = when(entity.returnCondition) {
+                                    "EXCELENTE" -> Color(0xFF27AE60)
+                                    "BUENO" -> Color(0xFF2980B9)
+                                    "MALO" -> Color(0xFFE67E22)
+                                    "NUNCA_DEVUELTO" -> Color(0xFFC0392B)
+                                    else -> MaterialTheme.colorScheme.secondary
+                                }
+                                SuggestionChip(
+                                    onClick = { },
+                                    label = { Text(entity.returnCondition) },
+                                    colors = SuggestionChipDefaults.suggestionChipColors(
+                                        containerColor = conditionColor.copy(alpha = 0.8f),
+                                        labelColor = Color.White
+                                    ),
+                                    border = null,
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                            }
+                        }
                     }
                 }
 
@@ -238,10 +260,42 @@ fun LoanDetailScreen(
                             InfoRow(Icons.Default.CalendarToday, "Fecha Préstamo", dateFormatter.format(entity.fechaPrestamo))
                             Spacer(modifier = Modifier.height(16.dp))
                             InfoRow(
-                                Icons.Default.CalendarToday,
-                                if (entity.estado == LoanStatus.ACTIVO) "Fecha Límite" else "Fecha Devolución",
+                                Icons.Default.CalendarMonth, 
+                                "Límite Acordado", 
                                 dateFormatter.format(entity.fechaDevolucion)
                             )
+                            if (entity.fechaDevolucionReal != null) {
+                                Spacer(modifier = Modifier.height(16.dp))
+                                InfoRow(
+                                    Icons.Default.EventAvailable, 
+                                    "Devuelto el", 
+                                    dateFormatter.format(entity.fechaDevolucionReal)
+                                )
+                            }
+                        }
+                    }
+
+                    if (!entity.notes.isNullOrBlank()) {
+                        ElevatedCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(24.dp),
+                            colors = CardDefaults.elevatedCardColors(
+                                containerColor = MaterialTheme.colorScheme.surface
+                            )
+                        ) {
+                            Column(modifier = Modifier.padding(20.dp)) {
+                                Text(
+                                    text = "Notas",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = entity.notes,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
                         }
                     }
 
@@ -258,9 +312,14 @@ fun LoanDetailScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(200.dp)
-                                .clip(RoundedCornerShape(24.dp)),
+                                .clip(RoundedCornerShape(24.dp))
+                                .clickable { selectedImageUri = entity.photoReturnUri },
                             contentScale = ContentScale.Crop
                         )
+                    }
+
+                    if (entity.reminderCount > 0) {
+                        InfoRow(Icons.Default.NotificationsActive, "Recordatorios enviados", entity.reminderCount.toString())
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -283,7 +342,10 @@ fun LoanDetailScreen(
 
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             OutlinedButton(
-                                onClick = { viewModel.markAsReturned(null) },
+                                onClick = { 
+                                    tempPhotoUriString = null
+                                    showReturnConditionSheet = true 
+                                },
                                 modifier = Modifier.weight(1f).height(50.dp),
                                 shape = RoundedCornerShape(16.dp)
                             ) {
@@ -339,6 +401,78 @@ fun LoanDetailScreen(
             }
         )
     }
+
+    if (showReturnConditionSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showReturnConditionSheet = false }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    "¿En qué condición fue devuelto?",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+
+                ReturnConditionButton(
+                    icon = Icons.Default.Star,
+                    label = "EXCELENTE",
+                    description = "El artículo se devolvió en perfectas condiciones",
+                    backgroundColor = Color(0xFF4CAF50),
+                    onClick = {
+                        viewModel.markAsReturnedWithCondition(tempPhotoUriString, "EXCELENTE")
+                        showReturnConditionSheet = false
+                    }
+                )
+
+                ReturnConditionButton(
+                    icon = Icons.Default.ThumbUp,
+                    label = "BUENO",
+                    description = "El artículo está en buen estado",
+                    backgroundColor = Color(0xFF2196F3),
+                    onClick = {
+                        viewModel.markAsReturnedWithCondition(tempPhotoUriString, "BUENO")
+                        showReturnConditionSheet = false
+                    }
+                )
+
+                ReturnConditionButton(
+                    icon = Icons.Default.Warning,
+                    label = "MALO",
+                    description = "El artículo fue devuelto con daños",
+                    backgroundColor = Color(0xFFFFA500),
+                    onClick = {
+                        viewModel.markAsReturnedWithCondition(tempPhotoUriString, "MALO")
+                        showReturnConditionSheet = false
+                    }
+                )
+
+                ReturnConditionButton(
+                    icon = Icons.Default.Cancel,
+                    label = "NUNCA DEVUELTO",
+                    description = "El artículo nunca fue devuelto",
+                    backgroundColor = Color(0xFFD32F2F),
+                    onClick = {
+                        viewModel.markAsReturnedWithCondition(tempPhotoUriString, "NUNCA_DEVUELTO")
+                        showReturnConditionSheet = false
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+        }
+    }
+
+    selectedImageUri?.let { uri ->
+        FullScreenImageDialog(
+            imageUri = uri,
+            onDismiss = { selectedImageUri = null }
+        )
+    }
 }
 
 @Composable
@@ -360,7 +494,7 @@ fun InfoRow(icon: ImageVector, label: String, value: String) {
 
 @Composable
 fun ReturnConditionButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     label: String,
     description: String,
     backgroundColor: Color,
@@ -369,7 +503,8 @@ fun ReturnConditionButton(
     Button(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        colors = ButtonDefaults.buttonColors(containerColor = backgroundColor)
+        colors = ButtonDefaults.buttonColors(containerColor = backgroundColor),
+        shape = RoundedCornerShape(16.dp)
     ) {
         Icon(
             icon,
@@ -380,7 +515,7 @@ fun ReturnConditionButton(
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(label, fontWeight = FontWeight.Bold, color = Color.White)
-            Text(description, style = MaterialTheme.typography.bodySmall, color = Color.White)
+            Text(description, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.8f))
         }
     }
 }

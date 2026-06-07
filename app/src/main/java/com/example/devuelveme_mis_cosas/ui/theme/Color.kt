@@ -15,3 +15,10 @@ val Rose = Color(0xFFEF4444)
 val TextPrimary = Color(0xFFF8FAFC)
 val TextSecondary = Color(0xFF94A3B8)
 val BorderColor = Color(0xFF334155)
+
+// Light Mode Premium Palette
+val LightBackground = Color(0xFFF1F5F9)
+val LightSurface = Color(0xFFFFFFFF)
+val LightTextPrimary = Color(0xFF0F172A)
+val LightTextSecondary = Color(0xFF64748B)
+val LightBorder = Color(0xFFE2E8F0)
