@@ -54,7 +54,18 @@ fun ReputationScreen(viewModel: ReputationViewModel = hiltViewModel()) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Reputación de Contactos") }
+                title = { 
+                    Text(
+                        "Reputación", 
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    ) 
+                },
+                windowInsets = WindowInsets(0, 0, 0, 0),
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = Color.Transparent
+                )
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }

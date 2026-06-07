@@ -6,39 +6,35 @@ import android.os.Environment
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.ContactPage
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PhotoLibrary
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import com.example.devuelveme_mis_cosas.data.local.LoanCategory
-import com.example.devuelveme_mis_cosas.domain.model.Contact
 import com.example.devuelveme_mis_cosas.presentation.components.AnimatedSuccessDialog
 import com.example.devuelveme_mis_cosas.presentation.components.FullScreenImageDialog
 import com.example.devuelveme_mis_cosas.presentation.components.PermissionDialog
@@ -46,7 +42,6 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,10 +61,12 @@ fun NewLoanScreen(
     var showCategoryMenu by remember { mutableStateOf(false) }
     var showFullImage by remember { mutableStateOf(false) }
     var showSuccessDialog by remember { mutableStateOf(false) }
+    var showPhotoSourcePicker by remember { mutableStateOf(false) }
 
     var showCameraRationale by remember { mutableStateOf(false) }
     var showContactsRationale by remember { mutableStateOf(false) }
 
+    // Launchers (Logic preserved)
     val contactPickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.PickContact()
     ) { uri ->
@@ -138,17 +135,17 @@ fun NewLoanScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Nuevo Préstamo") },
+                title = { Text("Nuevo Préstamo", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
                     }
                 },
-                actions = {
-                    TextButton(onClick = { viewModel.saveLoan() }) {
-                        Text("GUARDAR", fontWeight = FontWeight.Bold)
-                    }
-                }
+                windowInsets = WindowInsets(0, 0, 0, 0),
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = Color.Transparent
+                )
             )
         }
     ) { padding ->
@@ -156,37 +153,49 @@ fun NewLoanScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
+                .padding(horizontal = 20.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            TextField(
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Step 2: Modern Inputs
+            OutlinedTextField(
                 value = uiState.nombreObjeto,
                 onValueChange = viewModel::onNombreObjetoChange,
-                label = { Text("¿Qué has prestado? *") },
+                label = { Text("¿Qué has prestado?") },
+                placeholder = { Text("Ej. Taladro, Libro, Dinero...") },
                 modifier = Modifier.fillMaxWidth(),
-                isError = uiState.nombreObjeto.isBlank() && uiState.errorMessage != null
+                shape = RoundedCornerShape(16.dp),
+                leadingIcon = { Icon(Icons.Default.Inventory2, contentDescription = null) },
+                isError = uiState.nombreObjeto.isBlank() && uiState.errorMessage != null,
+                singleLine = true
             )
 
             OutlinedTextField(
                 value = uiState.notes,
                 onValueChange = viewModel::onNotesChange,
-                label = { Text("Notas adicionales (opcional)") },
+                label = { Text("Notas adicionales") },
                 modifier = Modifier.fillMaxWidth(),
-                maxLines = 4
+                shape = RoundedCornerShape(16.dp),
+                leadingIcon = { Icon(Icons.Default.EditNote, contentDescription = null) },
+                minLines = 3
             )
 
+            // Category Selector
             ExposedDropdownMenuBox(
                 expanded = showCategoryMenu,
                 onExpandedChange = { showCategoryMenu = !showCategoryMenu }
             ) {
-                TextField(
+                OutlinedTextField(
                     value = uiState.categoria.name,
                     onValueChange = {},
                     readOnly = true,
                     label = { Text("Categoría") },
+                    leadingIcon = { Icon(Icons.Default.Category, contentDescription = null) },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showCategoryMenu) },
-                    modifier = Modifier.menuAnchor().fillMaxWidth()
+                    modifier = Modifier.menuAnchor().fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
                 )
                 ExposedDropdownMenu(
                     expanded = showCategoryMenu,
@@ -204,88 +213,98 @@ fun NewLoanScreen(
                 }
             }
 
-            // Contact Section - Replaced Manual Entry with Native Contact Creation
-            OutlinedCard(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Contacto *", style = MaterialTheme.typography.titleMedium)
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    if (uiState.contactoNombre.isNotBlank()) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                                if (uiState.contactoPhotoUri != null) {
-                                    AsyncImage(
-                                        model = uiState.contactoPhotoUri,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(40.dp).clip(CircleShape),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                } else {
-                                    Icon(
-                                        Icons.Default.Person,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(40.dp).clip(CircleShape)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Column {
-                                    Text(uiState.contactoNombre, fontWeight = FontWeight.Bold)
-                                    if (uiState.contactoTelefono.isNotBlank()) {
-                                        Text(uiState.contactoTelefono, style = MaterialTheme.typography.bodySmall)
+            // Step 3: Redesigned Contact Card
+            Text("Información del Contacto", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                if (uiState.contactoNombre.isNotBlank()) {
+                    ListItem(
+                        headlineContent = { Text(uiState.contactoNombre, fontWeight = FontWeight.SemiBold) },
+                        supportingContent = { 
+                            if (uiState.contactoTelefono.isNotBlank()) {
+                                Text(uiState.contactoTelefono)
+                            }
+                        },
+                        leadingContent = {
+                            if (uiState.contactoPhotoUri != null) {
+                                AsyncImage(
+                                    model = uiState.contactoPhotoUri,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(48.dp).clip(CircleShape),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Surface(
+                                    modifier = Modifier.size(48.dp),
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.primaryContainer
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
                                     }
                                 }
                             }
+                        },
+                        trailingContent = {
                             IconButton(onClick = { viewModel.onContactCleared() }) {
-                                Icon(Icons.Default.Clear, contentDescription = "Quitar contacto")
+                                Icon(Icons.Default.Edit, contentDescription = "Cambiar contacto", tint = MaterialTheme.colorScheme.primary)
                             }
                         }
-                    } else {
-                        Column(
+                    )
+                } else {
+                    Column(
+                        modifier = Modifier.padding(24.dp).fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.PersonAdd,
+                            contentDescription = null,
+                            modifier = Modifier.size(48.dp),
+                            tint = MaterialTheme.colorScheme.outline
+                        )
+                        Text("Asignar a un contacto", style = MaterialTheme.typography.bodyLarge)
+                        
+                        Button(
+                            onClick = { contactPermissionLauncher.launch(Manifest.permission.READ_CONTACTS) },
                             modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                            shape = RoundedCornerShape(12.dp)
                         ) {
-                            FilledTonalButton(
-                                onClick = { contactPermissionLauncher.launch(Manifest.permission.READ_CONTACTS) },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Icon(Icons.Default.Search, contentDescription = null)
-                                Spacer(Modifier.width(8.dp))
-                                Text("Buscar en Agenda")
+                            Icon(Icons.Default.Search, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Buscar en Agenda")
+                        }
+                        
+                        TextButton(
+                            onClick = {
+                                val intent = android.content.Intent(android.content.Intent.ACTION_INSERT).apply {
+                                    type = android.provider.ContactsContract.RawContacts.CONTENT_TYPE
+                                }
+                                createContactLauncher.launch(intent)
                             }
-                            
-                            OutlinedButton(
-                                onClick = {
-                                    val intent = android.content.Intent(android.content.Intent.ACTION_INSERT).apply {
-                                        type = android.provider.ContactsContract.RawContacts.CONTENT_TYPE
-                                    }
-                                    createContactLauncher.launch(intent)
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Icon(Icons.Default.ContactPage, contentDescription = null)
-                                Spacer(Modifier.width(8.dp))
-                                Text("Crear Nuevo Contacto")
-                            }
+                        ) {
+                            Text("O crear nuevo contacto")
                         }
                     }
                 }
             }
 
-            // Date Pickers
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Step 4: Interactive Dates
+            Text("Plazos", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 DatePickerField(
-                    label = "Fecha Préstamo",
+                    label = "Prestado el",
                     date = uiState.fechaPrestamo,
                     onClick = { showLoanDatePicker = true },
                     modifier = Modifier.weight(1f),
                     dateFormatter = dateFormatter
                 )
                 DatePickerField(
-                    label = "Fecha Devolución",
+                    label = "Devolución",
                     date = uiState.fechaDevolucion,
                     onClick = { showDueDatePicker = true },
                     modifier = Modifier.weight(1f),
@@ -293,43 +312,108 @@ fun NewLoanScreen(
                 )
             }
 
-            // Photo Section
+            // Step 5: Photography Area
+            Text("Evidencia Visual", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
             if (uiState.photoUri != null) {
-                AsyncImage(
-                    model = uiState.photoUri,
-                    contentDescription = "Foto del objeto",
+                Box(modifier = Modifier.fillMaxWidth().height(200.dp)) {
+                    AsyncImage(
+                        model = uiState.photoUri,
+                        contentDescription = "Foto del objeto",
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(16.dp))
+                            .clickable { showFullImage = true },
+                        contentScale = ContentScale.Crop
+                    )
+                    FilledIconButton(
+                        onClick = { viewModel.onPhotoSelected(null) },
+                        modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = Color.Black.copy(alpha = 0.5f),
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Icon(Icons.Default.Delete, contentDescription = "Eliminar foto")
+                    }
+                }
+            } else {
+                val strokeColor = MaterialTheme.colorScheme.outlineVariant
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(200.dp)
-                        .clip(MaterialTheme.shapes.medium)
-                        .clickable { showFullImage = true },
-                    contentScale = ContentScale.Crop
-                )
+                        .height(150.dp)
+                        .drawBehind {
+                            drawRoundRect(
+                                color = strokeColor,
+                                style = Stroke(
+                                    width = 2.dp.toPx(),
+                                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
+                                ),
+                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(16.dp.toPx())
+                            )
+                        }
+                        .clip(RoundedCornerShape(16.dp))
+                        .clickable { showPhotoSourcePicker = true },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.height(8.dp))
+                        Text("Agregar foto de evidencia", color = MaterialTheme.colorScheme.primary)
+                    }
+                }
             }
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = { cameraPermissionLauncher.launch(Manifest.permission.CAMERA) },
-                    modifier = Modifier.weight(1f)
-                ) {
+            // Step 6: CTA Save Button
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = { viewModel.saveLoan() },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(16.dp),
+                enabled = !uiState.isSaving
+            ) {
+                if (uiState.isSaving) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
+                } else {
+                    Text("Guardar Préstamo", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            // Bottom Spacing
+            Spacer(modifier = Modifier.height(100.dp))
+        }
+    }
+
+    // Modal for Photo Source
+    if (showPhotoSourcePicker) {
+        AlertDialog(
+            onDismissRequest = { showPhotoSourcePicker = false },
+            title = { Text("Seleccionar origen") },
+            text = { Text("Elige cómo quieres agregar la foto de evidencia.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showPhotoSourcePicker = false
+                    cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                }) {
                     Icon(Icons.Default.CameraAlt, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
                     Text("Cámara")
                 }
-                OutlinedButton(
-                    onClick = { 
-                        galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                    },
-                    modifier = Modifier.weight(1f)
-                ) {
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showPhotoSourcePicker = false
+                    galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                }) {
                     Icon(Icons.Default.PhotoLibrary, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
                     Text("Galería")
                 }
             }
-        }
+        )
     }
 
+    // Pickers and Dialogs (Preserved Logic)
     if (showLoanDatePicker) {
         DatePickerModal(
             initialDate = viewModel.getUtcMillis(uiState.fechaPrestamo),
@@ -349,7 +433,7 @@ fun NewLoanScreen(
     if (showCameraRationale) {
         PermissionDialog(
             permissionName = "Cámara",
-            rationale = "Necesitamos acceso a la cámara para que puedas tomar fotos de los objetos que prestas y tener una evidencia visual.",
+            rationale = "Necesitamos acceso a la cámara para que puedas tomar fotos de los objetos que prestas.",
             onDismiss = { showCameraRationale = false },
             onConfirm = {
                 showCameraRationale = false
@@ -361,7 +445,7 @@ fun NewLoanScreen(
     if (showContactsRationale) {
         PermissionDialog(
             permissionName = "Contactos",
-            rationale = "El acceso a los contactos permite seleccionar rápidamente a quién le prestas algo, ahorrándote tiempo al escribir sus datos.",
+            rationale = "El acceso a los contactos permite seleccionar rápidamente a quién le prestas algo.",
             onDismiss = { showContactsRationale = false },
             onConfirm = {
                 showContactsRationale = false
@@ -391,10 +475,27 @@ fun NewLoanScreen(
 
 @Composable
 fun DatePickerField(label: String, date: Date, onClick: () -> Unit, modifier: Modifier, dateFormatter: SimpleDateFormat) {
-    OutlinedCard(onClick = onClick, modifier = modifier) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(label, style = MaterialTheme.typography.labelSmall)
-            Text(dateFormatter.format(date), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+    Surface(
+        onClick = onClick,
+        modifier = modifier,
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Default.CalendarToday,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSecondaryContainer
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Column {
+                Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f))
+                Text(dateFormatter.format(date), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+            }
         }
     }
 }
