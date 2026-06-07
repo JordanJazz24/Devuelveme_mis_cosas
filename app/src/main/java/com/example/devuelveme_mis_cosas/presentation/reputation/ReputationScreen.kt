@@ -7,13 +7,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.StarHalf
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarOutline
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -24,18 +23,28 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import com.example.devuelveme_mis_cosas.data.local.ContactReputation
+import com.example.devuelveme_mis_cosas.presentation.components.AnimatedSuccessDialog
+import com.example.devuelveme_mis_cosas.presentation.components.ConfirmationDialog
+
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReputationScreen(viewModel: ReputationViewModel = hiltViewModel()) {
     val reputations by viewModel.reputations.collectAsState()
+    var reputationToDelete by remember { mutableStateOf<ContactReputation?>(null) }
+    var showSuccessDialog by remember { mutableStateOf(false) }
+    var deletedContactName by remember { mutableStateOf("") }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Reputación de Contactos") }
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
         if (reputations.isEmpty()) {
             Box(
@@ -55,10 +64,37 @@ fun ReputationScreen(viewModel: ReputationViewModel = hiltViewModel()) {
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(reputations) { reputation ->
-                    ReputationCard(reputation)
+                    ReputationCard(
+                        reputation = reputation,
+                        onDeleteClick = { reputationToDelete = reputation }
+                    )
                 }
             }
         }
+    }
+
+    if (reputationToDelete != null) {
+        ConfirmationDialog(
+            title = "Eliminar Reputación",
+            message = "¿Estás seguro de eliminar a este contacto de tu historial? Sus préstamos no se borrarán, pero su reputación sí.",
+            confirmText = "Eliminar",
+            onConfirm = {
+                val name = reputationToDelete?.contactName ?: ""
+                viewModel.deleteReputation(reputationToDelete!!)
+                deletedContactName = name
+                reputationToDelete = null
+                showSuccessDialog = true
+            },
+            onDismiss = { reputationToDelete = null }
+        )
+    }
+
+    if (showSuccessDialog) {
+        AnimatedSuccessDialog(
+            title = "¡Eliminado!",
+            message = "La reputación de $deletedContactName ha sido borrada.",
+            onDismiss = { showSuccessDialog = false }
+        )
     }
 }
 
@@ -78,7 +114,10 @@ fun getBadgeColor(score: Float): Color = when {
 }
 
 @Composable
-private fun ReputationCard(reputation: ContactReputation) {
+private fun ReputationCard(
+    reputation: ContactReputation,
+    onDeleteClick: () -> Unit
+) {
     OutlinedCard(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium
@@ -133,6 +172,14 @@ private fun ReputationCard(reputation: ContactReputation) {
                         fontWeight = FontWeight.Black
                     )
                 }
+
+                IconButton(onClick = onDeleteClick) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Eliminar Reputación",
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -167,7 +214,7 @@ private fun ReputationCard(reputation: ContactReputation) {
             Spacer(modifier = Modifier.height(8.dp))
 
             // Resumen de estadísticas (Formato exacto solicitado)
-            val devueltos = reputation.returnedOnTime + reputation.returnedLate + reputation.returnedDamaged
+            val devueltos = reputation.returnedOnTime + reputation.returnedLate
             Text(
                 text = "${reputation.totalLoans} préstamos · $devueltos devueltos · ${reputation.neverReturned} nunca devueltos",
                 style = MaterialTheme.typography.bodySmall,

@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface ContactReputationRepository {
     suspend fun upsert(reputation: ContactReputation)
+    suspend fun delete(reputation: ContactReputation)
     fun getByPhone(phone: String): Flow<ContactReputation?>
     fun getAllOrderedByScore(): Flow<List<ContactReputation>>
     suspend fun deleteAll()

@@ -81,6 +81,9 @@ dependencies {
     testImplementation(libs.turbine)
     testImplementation(libs.mockk)
 
+    // Lottie
+    implementation(libs.lottie.compose)
+
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)

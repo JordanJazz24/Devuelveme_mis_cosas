@@ -14,6 +14,10 @@ class ContactReputationRepositoryImpl @Inject constructor(
         dao.upsert(reputation)
     }
 
+    override suspend fun delete(reputation: ContactReputation) {
+        dao.delete(reputation)
+    }
+
     override fun getByPhone(phone: String): Flow<ContactReputation?> {
         return dao.getByPhone(phone)
     }

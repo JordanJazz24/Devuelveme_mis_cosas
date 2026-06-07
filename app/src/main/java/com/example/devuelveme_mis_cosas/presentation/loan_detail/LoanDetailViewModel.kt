@@ -132,13 +132,18 @@ class LoanDetailViewModel @Inject constructor(
 
         allLoans.forEach { loanEntity ->
             if (loanEntity.estado == LoanStatus.DEVUELTO) {
-                val isLate = loanEntity.fechaDevolucionReal?.after(loanEntity.fechaDevolucion) ?: false
-                if (isLate) returnedLate++ else returnedOnTime++
+                if (loanEntity.returnCondition == "NUNCA_DEVUELTO") {
+                    neverReturned++
+                } else {
+                    // Solo si sí lo devolvió, calculamos si fue a tiempo o tarde
+                    val isLate = loanEntity.fechaDevolucionReal?.after(loanEntity.fechaDevolucion) ?: false
+                    if (isLate) returnedLate++ else returnedOnTime++
 
-                when (loanEntity.returnCondition) {
-                    "EXCELENTE" -> excellentReturns++
-                    "MALO" -> returnedDamaged++
-                    "NUNCA_DEVUELTO" -> neverReturned++
+                    // Calculamos las condiciones extra
+                    when (loanEntity.returnCondition) {
+                        "EXCELENTE" -> excellentReturns++
+                        "MALO" -> returnedDamaged++
+                    }
                 }
             }
         }
@@ -171,6 +176,7 @@ class LoanDetailViewModel @Inject constructor(
         viewModelScope.launch {
             repository.deleteLoan(currentLoan)
             WorkManager.getInstance(context).cancelAllWorkByTag(loanId.toString())
+            _uiState.update { it.copy(saveSuccess = true) }
         }
     }
 }

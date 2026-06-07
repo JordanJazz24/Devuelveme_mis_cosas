@@ -39,6 +39,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import com.example.devuelveme_mis_cosas.data.local.LoanCategory
 import com.example.devuelveme_mis_cosas.domain.model.Contact
+import com.example.devuelveme_mis_cosas.presentation.components.AnimatedSuccessDialog
 import com.example.devuelveme_mis_cosas.presentation.components.FullScreenImageDialog
 import com.example.devuelveme_mis_cosas.presentation.components.PermissionDialog
 import java.io.File
@@ -64,6 +65,7 @@ fun NewLoanScreen(
     var tempPhotoUriString by rememberSaveable { mutableStateOf<String?>(null) }
     var showCategoryMenu by remember { mutableStateOf(false) }
     var showFullImage by remember { mutableStateOf(false) }
+    var showSuccessDialog by remember { mutableStateOf(false) }
 
     var showCameraRationale by remember { mutableStateOf(false) }
     var showContactsRationale by remember { mutableStateOf(false) }
@@ -110,7 +112,7 @@ fun NewLoanScreen(
     }
 
     LaunchedEffect(uiState.saveSuccess) {
-        if (uiState.saveSuccess) onNavigateBack()
+        if (uiState.saveSuccess) showSuccessDialog = true
     }
 
     LaunchedEffect(uiState.errorMessage) {
@@ -389,6 +391,17 @@ fun NewLoanScreen(
         FullScreenImageDialog(
             imageUri = uiState.photoUri.toString(),
             onDismiss = { showFullImage = false }
+        )
+    }
+
+    if (showSuccessDialog) {
+        AnimatedSuccessDialog(
+            title = "¡Éxito!",
+            message = "El préstamo se ha guardado correctamente.",
+            onDismiss = {
+                showSuccessDialog = false
+                onNavigateBack()
+            }
         )
     }
 }

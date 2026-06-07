@@ -11,6 +11,9 @@ interface ContactReputationDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(reputation: ContactReputation)
 
+    @androidx.room.Delete
+    suspend fun delete(reputation: ContactReputation)
+
     @Query("SELECT * FROM contact_reputation WHERE contactPhone = :phone")
     fun getByPhone(phone: String): Flow<ContactReputation?>
 

@@ -32,9 +32,9 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
+import com.example.devuelveme_mis_cosas.data.local.LoanCategory
 import com.example.devuelveme_mis_cosas.data.local.LoanStatus
-import com.example.devuelveme_mis_cosas.presentation.components.FullScreenImageDialog
-import com.example.devuelveme_mis_cosas.presentation.components.PermissionDialog
+import com.example.devuelveme_mis_cosas.presentation.components.*
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -53,9 +53,13 @@ fun LoanDetailScreen(
     
     var tempPhotoUriString by rememberSaveable { mutableStateOf<String?>(null) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showReturnDialog by remember { mutableStateOf(false) }
+    var showLostDialog by remember { mutableStateOf(false) }
     var showCameraRationale by remember { mutableStateOf(false) }
     var showReturnConditionSheet by remember { mutableStateOf(false) }
     var selectedImageUri by remember { mutableStateOf<String?>(null) }
+    var showSuccessDialog by remember { mutableStateOf(false) }
+    var successMessage by remember { mutableStateOf("") }
 
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
@@ -83,7 +87,9 @@ fun LoanDetailScreen(
     }
 
     LaunchedEffect(uiState.saveSuccess) {
-        if (uiState.saveSuccess) onNavigateBack()
+        if (uiState.saveSuccess) {
+            showSuccessDialog = true
+        }
     }
 
     LaunchedEffect(uiState.reminderMessage) {
@@ -189,13 +195,20 @@ fun LoanDetailScreen(
                         Spacer(modifier = Modifier.height(8.dp))
                         
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            val statusLabel = if (entity.estado == LoanStatus.DEVUELTO && entity.returnCondition == "NUNCA_DEVUELTO") 
+                                "NUNCA DEVUELTO" 
+                            else 
+                                entity.estado.name
+
                             SuggestionChip(
                                 onClick = { },
-                                label = { Text(entity.estado.name) },
+                                label = { Text(statusLabel) },
                                 colors = SuggestionChipDefaults.suggestionChipColors(
                                     containerColor = if (entity.estado == LoanStatus.ACTIVO) 
                                         MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
-                                    else 
+                                    else if (entity.returnCondition == "NUNCA_DEVUELTO")
+                                        MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
+                                    else
                                         MaterialTheme.colorScheme.secondary.copy(alpha = 0.8f),
                                     labelColor = Color.White
                                 ),
@@ -203,7 +216,7 @@ fun LoanDetailScreen(
                                 shape = RoundedCornerShape(12.dp)
                             )
 
-                            if (entity.estado == LoanStatus.DEVUELTO && entity.returnCondition != null) {
+                            if (entity.estado == LoanStatus.DEVUELTO && entity.returnCondition != null && entity.returnCondition != "NUNCA_DEVUELTO") {
                                 val conditionColor = when(entity.returnCondition) {
                                     "EXCELENTE" -> Color(0xFF27AE60)
                                     "BUENO" -> Color(0xFF2980B9)
@@ -342,10 +355,7 @@ fun LoanDetailScreen(
 
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             OutlinedButton(
-                                onClick = { 
-                                    tempPhotoUriString = null
-                                    showReturnConditionSheet = true 
-                                },
+                                onClick = { showReturnDialog = true },
                                 modifier = Modifier.weight(1f).height(50.dp),
                                 shape = RoundedCornerShape(16.dp)
                             ) {
@@ -361,6 +371,16 @@ fun LoanDetailScreen(
                                 Text("Cerrar con Foto")
                             }
                         }
+
+                        TextButton(
+                            onClick = { showLostDialog = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                        ) {
+                            Icon(Icons.Default.Cancel, null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Dar por Perdido / Nunca Devuelto")
+                        }
                     }
                 }
             }
@@ -372,20 +392,56 @@ fun LoanDetailScreen(
         }
     }
 
-    // Dialogs
-    if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("¿Eliminar registro?") },
-            text = { Text("Esta acción borrará permanentemente la información del préstamo.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.deleteLoan()
-                    onNavigateBack()
-                }) { Text("Eliminar", color = MaterialTheme.colorScheme.error) }
+    if (showReturnDialog) {
+        ConfirmationDialog(
+            title = "Marcar como devuelto",
+            message = "¿Estás seguro de que quieres marcar este artículo como devuelto? Esta acción no se puede deshacer.",
+            onConfirm = {
+                tempPhotoUriString = null
+                if (loan?.categoria == LoanCategory.DINERO) {
+                    successMessage = "¡Dinero devuelto con éxito!"
+                    viewModel.markAsReturnedWithCondition(null, "BUENO")
+                } else {
+                    showReturnConditionSheet = true
+                }
             },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) { Text("Cancelar") }
+            onDismiss = { showReturnDialog = false }
+        )
+    }
+
+    if (showLostDialog) {
+        ConfirmationDialog(
+            title = "¿Dar por perdido?",
+            message = "Esto afectará negativamente la reputación del contacto. ¿Estás seguro?",
+            confirmText = "Confirmar",
+            onConfirm = {
+                successMessage = "Préstamo cerrado como no devuelto."
+                viewModel.markAsReturnedWithCondition(photoReturnUri = null, condition = "NUNCA_DEVUELTO")
+            },
+            onDismiss = { showLostDialog = false }
+        )
+    }
+
+    if (showDeleteDialog) {
+        ConfirmationDialog(
+            title = "¿Eliminar registro?",
+            message = "Esta acción borrará permanentemente la información del préstamo.",
+            confirmText = "Eliminar",
+            onConfirm = {
+                successMessage = "Préstamo eliminado correctamente"
+                viewModel.deleteLoan()
+            },
+            onDismiss = { showDeleteDialog = false }
+        )
+    }
+
+    if (showSuccessDialog) {
+        AnimatedSuccessDialog(
+            title = "¡Hecho!",
+            message = successMessage,
+            onDismiss = {
+                showSuccessDialog = false
+                onNavigateBack()
             }
         )
     }
@@ -424,6 +480,7 @@ fun LoanDetailScreen(
                     description = "El artículo se devolvió en perfectas condiciones",
                     backgroundColor = Color(0xFF4CAF50),
                     onClick = {
+                        successMessage = "¡Artículo devuelto en excelentes condiciones!"
                         viewModel.markAsReturnedWithCondition(tempPhotoUriString, "EXCELENTE")
                         showReturnConditionSheet = false
                     }
@@ -435,6 +492,7 @@ fun LoanDetailScreen(
                     description = "El artículo está en buen estado",
                     backgroundColor = Color(0xFF2196F3),
                     onClick = {
+                        successMessage = "¡Artículo devuelto correctamente!"
                         viewModel.markAsReturnedWithCondition(tempPhotoUriString, "BUENO")
                         showReturnConditionSheet = false
                     }
@@ -446,6 +504,7 @@ fun LoanDetailScreen(
                     description = "El artículo fue devuelto con daños",
                     backgroundColor = Color(0xFFFFA500),
                     onClick = {
+                        successMessage = "Registro actualizado. El artículo tiene daños."
                         viewModel.markAsReturnedWithCondition(tempPhotoUriString, "MALO")
                         showReturnConditionSheet = false
                     }
@@ -457,6 +516,7 @@ fun LoanDetailScreen(
                     description = "El artículo nunca fue devuelto",
                     backgroundColor = Color(0xFFD32F2F),
                     onClick = {
+                        successMessage = "Préstamo cerrado como no devuelto."
                         viewModel.markAsReturnedWithCondition(tempPhotoUriString, "NUNCA_DEVUELTO")
                         showReturnConditionSheet = false
                     }
