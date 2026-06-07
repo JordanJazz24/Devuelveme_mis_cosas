@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import com.example.devuelveme_mis_cosas.data.local.ContactReputation
+import com.example.devuelveme_mis_cosas.data.local.LoanStatus
 import com.example.devuelveme_mis_cosas.presentation.components.AnimatedSuccessDialog
 import com.example.devuelveme_mis_cosas.presentation.components.ConfirmationDialog
 
@@ -32,11 +33,22 @@ import kotlinx.coroutines.launch
 @Composable
 fun ReputationScreen(viewModel: ReputationViewModel = hiltViewModel()) {
     val reputations by viewModel.reputations.collectAsState()
+    val contactLoans by viewModel.contactLoans.collectAsState()
+
+    var selectedContact by remember { mutableStateOf<ContactReputation?>(null) }
     var reputationToDelete by remember { mutableStateOf<ContactReputation?>(null) }
     var showSuccessDialog by remember { mutableStateOf(false) }
     var deletedContactName by remember { mutableStateOf("") }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+
+    LaunchedEffect(selectedContact) {
+        if (selectedContact != null) {
+            viewModel.loadLoansForContact(selectedContact!!.contactPhone)
+        } else {
+            viewModel.clearSelectedContact()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -66,9 +78,87 @@ fun ReputationScreen(viewModel: ReputationViewModel = hiltViewModel()) {
                 items(reputations) { reputation ->
                     ReputationCard(
                         reputation = reputation,
-                        onDeleteClick = { reputationToDelete = reputation }
+                        onDeleteClick = { reputationToDelete = reputation },
+                        onClick = { selectedContact = reputation }
                     )
                 }
+            }
+        }
+    }
+
+    if (selectedContact != null) {
+        ModalBottomSheet(
+            onDismissRequest = { selectedContact = null },
+            sheetState = rememberModalBottomSheetState()
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(16.dp)
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+            ) {
+                Text(
+                    text = "Préstamos con ${selectedContact!!.contactName}",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+
+                if (contactLoans.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                } else {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.weight(1f, fill = false)
+                    ) {
+                        items(contactLoans) { loan ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                )
+                            ) {
+                                ListItem(
+                                    headlineContent = { 
+                                        Text(
+                                            loan.nombreObjeto,
+                                            fontWeight = FontWeight.Bold
+                                        ) 
+                                    },
+                                    supportingContent = { 
+                                        val statusText = if (loan.estado == LoanStatus.DEVUELTO && loan.returnCondition == "NUNCA_DEVUELTO") {
+                                            "Estado: NUNCA DEVUELTO"
+                                        } else {
+                                            "Estado: ${loan.estado}"
+                                        }
+                                        Text(statusText)
+                                    },
+                                    trailingContent = {
+                                        val date = loan.fechaDevolucionReal ?: loan.fechaDevolucion
+                                        val formatter = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault())
+                                        Text(
+                                            formatter.format(date),
+                                            style = MaterialTheme.typography.labelSmall
+                                        )
+                                    },
+                                    colors = ListItemDefaults.colors(
+                                        containerColor = androidx.compose.ui.graphics.Color.Transparent
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(32.dp))
             }
         }
     }
@@ -116,9 +206,11 @@ fun getBadgeColor(score: Float): Color = when {
 @Composable
 private fun ReputationCard(
     reputation: ContactReputation,
-    onDeleteClick: () -> Unit
+    onDeleteClick: () -> Unit,
+    onClick: () -> Unit
 ) {
     OutlinedCard(
+        onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium
     ) {

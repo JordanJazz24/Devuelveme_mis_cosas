@@ -510,17 +510,7 @@ fun LoanDetailScreen(
                     }
                 )
 
-                ReturnConditionButton(
-                    icon = Icons.Default.Cancel,
-                    label = "NUNCA DEVUELTO",
-                    description = "El artículo nunca fue devuelto",
-                    backgroundColor = Color(0xFFD32F2F),
-                    onClick = {
-                        successMessage = "Préstamo cerrado como no devuelto."
-                        viewModel.markAsReturnedWithCondition(tempPhotoUriString, "NUNCA_DEVUELTO")
-                        showReturnConditionSheet = false
-                    }
-                )
+
 
                 Spacer(modifier = Modifier.height(16.dp))
             }
