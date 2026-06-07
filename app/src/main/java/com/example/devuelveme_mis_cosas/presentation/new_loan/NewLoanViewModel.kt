@@ -44,8 +44,7 @@ data class NewLoanUiState(
     val errorMessage: String? = null,
     val contacts: List<Contact> = emptyList(),
     val showContactPicker: Boolean = false,
-    val contactSearchQuery: String = "",
-    val contactEnteredManually: Boolean = false
+    val contactSearchQuery: String = ""
 )
 
 @HiltViewModel
@@ -269,11 +268,41 @@ class NewLoanViewModel @Inject constructor(
         _uiState.update { it.copy(errorMessage = null) }
     }
 
+    fun onContactCreatedFallback() {
+        viewModelScope.launch {
+            try {
+                val latestContactUri = withContext(Dispatchers.IO) {
+                    context.contentResolver.query(
+                        ContactsContract.Contacts.CONTENT_URI,
+                        arrayOf(ContactsContract.Contacts._ID),
+                        null,
+                        null,
+                        "${ContactsContract.Contacts._ID} DESC"
+                    )?.use { cursor ->
+                        if (cursor.moveToFirst()) {
+                            val id = cursor.getLong(0)
+                            Uri.withAppendedPath(ContactsContract.Contacts.CONTENT_URI, id.toString())
+                        } else null
+                    }
+                }
+                latestContactUri?.let { onContactPicked(it) }
+            } catch (e: Exception) {
+                Log.e("NewLoanVM", "Error getting fallback contact", e)
+            }
+        }
+    }
+
     fun onContactSearchQueryChange(query: String) {
         _uiState.update { it.copy(contactSearchQuery = query) }
     }
 
-    fun onContactManualToggle(manual: Boolean) {
-        _uiState.update { it.copy(contactEnteredManually = manual) }
+    fun onContactCleared() {
+        _uiState.update { 
+            it.copy(
+                contactoNombre = "",
+                contactoTelefono = "",
+                contactoPhotoUri = null
+            )
+        }
     }
 }
