@@ -17,4 +17,5 @@ class LoanRepositoryImpl @Inject constructor(
     override fun getReturnedLoans(): Flow<List<LoanEntity>> = loanDao.getReturnedLoans()
     override fun getLoanById(id: UUID): Flow<LoanEntity> = loanDao.getLoanById(id)
     override fun getLoansForContact(phoneNumber: String): Flow<List<LoanEntity>> = loanDao.getLoansForContact(phoneNumber)
+    override suspend fun deleteAllReturnedLoans() = loanDao.deleteReturnedLoans()
 }

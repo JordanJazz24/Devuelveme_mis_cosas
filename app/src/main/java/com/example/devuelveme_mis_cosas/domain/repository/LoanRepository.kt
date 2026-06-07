@@ -12,4 +12,5 @@ interface LoanRepository {
     fun getReturnedLoans(): Flow<List<LoanEntity>>
     fun getLoanById(id: UUID): Flow<LoanEntity>
     fun getLoansForContact(phoneNumber: String): Flow<List<LoanEntity>>
+    suspend fun deleteAllReturnedLoans()
 }

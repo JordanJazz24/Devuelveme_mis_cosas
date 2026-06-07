@@ -21,6 +21,9 @@ interface LoanDao {
     @Query("SELECT * FROM loans WHERE estado = 'DEVUELTO' ORDER BY fechaDevolucionReal DESC")
     fun getReturnedLoans(): Flow<List<LoanEntity>>
 
+    @Query("DELETE FROM loans WHERE estado = 'DEVUELTO'")
+    suspend fun deleteReturnedLoans()
+
     @Query("SELECT * FROM loans WHERE id = :id")
     fun getLoanById(id: UUID): Flow<LoanEntity>
 
