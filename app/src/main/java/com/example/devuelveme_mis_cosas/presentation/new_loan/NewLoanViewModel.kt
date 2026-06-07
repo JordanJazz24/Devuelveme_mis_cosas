@@ -4,7 +4,6 @@ import android.content.Context
 import android.net.Uri
 import android.provider.ContactsContract
 import android.util.Log
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.Data
@@ -39,12 +38,14 @@ data class NewLoanUiState(
     val fechaPrestamo: Date = Date(),
     val fechaDevolucion: Date = Date(),
     val photoUri: Uri? = null,
+    val notes: String = "",
     val isSaving: Boolean = false,
     val saveSuccess: Boolean = false,
     val errorMessage: String? = null,
     val contacts: List<Contact> = emptyList(),
     val showContactPicker: Boolean = false,
-    val contactSearchQuery: String = ""
+    val contactSearchQuery: String = "",
+    val contactEnteredManually: Boolean = false
 )
 
 @HiltViewModel
@@ -101,6 +102,10 @@ class NewLoanViewModel @Inject constructor(
 
     fun onFechaDevolucionChange(newValue: Long) {
         _uiState.update { it.copy(fechaDevolucion = normalizeDateToLocalMidday(newValue), errorMessage = null) }
+    }
+
+    fun onNotesChange(newValue: String) {
+        _uiState.update { it.copy(notes = newValue) }
     }
 
     fun getUtcMillis(date: Date): Long {
@@ -218,7 +223,8 @@ class NewLoanViewModel @Inject constructor(
                     photoLoanUri = currentState.photoUri?.toString(),
                     photoReturnUri = null,
                     estado = LoanStatus.ACTIVO,
-                    categoria = currentState.categoria
+                    categoria = currentState.categoria,
+                    notes = currentState.notes.ifBlank { null }
                 )
                 repository.insertLoan(newLoan)
 
@@ -231,7 +237,6 @@ class NewLoanViewModel @Inject constructor(
                     .putString(LoanReminderWorker.KEY_NOMBRE_OBJETO, newLoan.nombreObjeto)
                     .build()
 
-                // Worker 1: 7 días antes
                 val delay7Days = (newLoan.fechaDevolucion.time - 7 * 86_400_000L) - System.currentTimeMillis()
                 if (delay7Days > 0) {
                     val request7Days = OneTimeWorkRequestBuilder<LoanReminderWorker>()
@@ -242,7 +247,6 @@ class NewLoanViewModel @Inject constructor(
                     workManager.enqueue(request7Days)
                 }
 
-                // Worker 2: día de vencimiento
                 val delayDue = newLoan.fechaDevolucion.time - System.currentTimeMillis()
                 if (delayDue > 0) {
                     val requestDue = OneTimeWorkRequestBuilder<LoanReminderWorker>()
@@ -252,7 +256,6 @@ class NewLoanViewModel @Inject constructor(
                         .build()
                     workManager.enqueue(requestDue)
                 }
-                // --- Fin workers ---
 
                 _uiState.update { it.copy(isSaving = false, saveSuccess = true) }
             } catch (e: Exception) {
@@ -268,5 +271,9 @@ class NewLoanViewModel @Inject constructor(
 
     fun onContactSearchQueryChange(query: String) {
         _uiState.update { it.copy(contactSearchQuery = query) }
+    }
+
+    fun onContactManualToggle(manual: Boolean) {
+        _uiState.update { it.copy(contactEnteredManually = manual) }
     }
 }

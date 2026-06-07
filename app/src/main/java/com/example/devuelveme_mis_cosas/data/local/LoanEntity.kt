@@ -36,5 +36,7 @@ data class LoanEntity(
     val estado: LoanStatus = LoanStatus.ACTIVO,
     val categoria: LoanCategory = LoanCategory.OTROS,
     val reminderCount: Int = 0,
-    val lastReminderTimestamp: Date? = null
+    val lastReminderTimestamp: Date? = null,
+    val notes: String? = null,
+    val returnCondition: String? = null // EXCELENTE, BUENO, MALO, NUNCA_DEVUELTO
 )

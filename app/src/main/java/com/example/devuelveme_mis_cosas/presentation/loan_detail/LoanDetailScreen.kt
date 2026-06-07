@@ -54,16 +54,17 @@ fun LoanDetailScreen(
     val context = LocalContext.current
     val dateFormatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
     val snackbarHostState = remember { SnackbarHostState() }
-    
+
     var tempPhotoUriString by rememberSaveable { mutableStateOf<String?>(null) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showCameraRationale by remember { mutableStateOf(false) }
+    var showReturnConditionSheet by remember { mutableStateOf(false) }
 
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
         if (success && tempPhotoUriString != null) {
-            viewModel.markAsReturned(tempPhotoUriString)
+            showReturnConditionSheet = true
         }
     }
 
@@ -191,9 +192,9 @@ fun LoanDetailScreen(
                             onClick = { },
                             label = { Text(entity.estado.name) },
                             colors = SuggestionChipDefaults.suggestionChipColors(
-                                containerColor = if (entity.estado == LoanStatus.ACTIVO) 
+                                containerColor = if (entity.estado == LoanStatus.ACTIVO)
                                     MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
-                                else 
+                                else
                                     MaterialTheme.colorScheme.secondary.copy(alpha = 0.8f),
                                 labelColor = Color.White
                             ),
@@ -237,8 +238,8 @@ fun LoanDetailScreen(
                             InfoRow(Icons.Default.CalendarToday, "Fecha Préstamo", dateFormatter.format(entity.fechaPrestamo))
                             Spacer(modifier = Modifier.height(16.dp))
                             InfoRow(
-                                Icons.Default.CalendarToday, 
-                                if (entity.estado == LoanStatus.ACTIVO) "Fecha Límite" else "Fecha Devolución", 
+                                Icons.Default.CalendarToday,
+                                if (entity.estado == LoanStatus.ACTIVO) "Fecha Límite" else "Fecha Devolución",
                                 dateFormatter.format(entity.fechaDevolucion)
                             )
                         }
@@ -353,6 +354,33 @@ fun InfoRow(icon: ImageVector, label: String, value: String) {
         Column {
             Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+@Composable
+fun ReturnConditionButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    description: String,
+    backgroundColor: Color,
+    onClick: () -> Unit
+) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        colors = ButtonDefaults.buttonColors(containerColor = backgroundColor)
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            modifier = Modifier.size(24.dp),
+            tint = Color.White
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(label, fontWeight = FontWeight.Bold, color = Color.White)
+            Text(description, style = MaterialTheme.typography.bodySmall, color = Color.White)
         }
     }
 }

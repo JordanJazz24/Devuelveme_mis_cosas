@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -39,7 +40,7 @@ import java.util.concurrent.TimeUnit
 fun LoanListScreen(
     onNavigateToNewLoan: () -> Unit,
     onNavigateToDetail: (UUID) -> Unit,
-    onNavigateToHistory: () -> Unit,
+    onNavigateToSettings: () -> Unit, // cambiado
     viewModel: LoanListViewModel = hiltViewModel()
 ) {
     val loans by viewModel.activeLoans.collectAsState()
@@ -47,20 +48,16 @@ fun LoanListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { 
+                title = {
                     Text(
                         "Préstamos Activos",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
-                    ) 
+                    )
                 },
                 actions = {
-                    IconButton(onClick = onNavigateToHistory) {
-                        Icon(
-                            imageVector = Icons.Default.History,
-                            contentDescription = "Historial",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
+                    IconButton(onClick = onNavigateToSettings) {
+                        Icon(Icons.Default.Settings, contentDescription = "Configuración")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -159,9 +156,9 @@ fun LoanItem(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                
+
                 Spacer(modifier = Modifier.height(8.dp))
-                
+
                 // Indicador de urgencia más discreto y elegante
                 Surface(
                     color = urgency.color.copy(alpha = 0.1f),
