@@ -11,6 +11,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -28,6 +29,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -46,6 +48,7 @@ fun LoanDetailScreen(
     viewModel: LoanDetailViewModel = hiltViewModel()
 ) {
     val loan by viewModel.loan.collectAsState()
+    val payments by viewModel.payments.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     val dateFormatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
@@ -60,6 +63,8 @@ fun LoanDetailScreen(
     var selectedImageUri by remember { mutableStateOf<String?>(null) }
     var showSuccessDialog by remember { mutableStateOf(false) }
     var successMessage by remember { mutableStateOf("") }
+    var showPaymentDialog by remember { mutableStateOf(false) }
+    var showSettleDebtDialog by remember { mutableStateOf(false) }
 
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
@@ -288,6 +293,103 @@ fun LoanDetailScreen(
                         }
                     }
 
+                    if (entity.reminderCount > 0) {
+                        ElevatedCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(24.dp),
+                            colors = CardDefaults.elevatedCardColors(
+                                containerColor = MaterialTheme.colorScheme.surface
+                            )
+                        ) {
+                            Column(modifier = Modifier.padding(20.dp)) {
+                                InfoRow(
+                                    Icons.Default.NotificationsActive,
+                                    "Recordatorios enviados",
+                                    entity.reminderCount.toString()
+                                )
+                                entity.lastReminderTimestamp?.let {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "Último: ${dateFormatter.format(it)}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        modifier = Modifier.padding(start = 36.dp),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    if (entity.categoria == LoanCategory.DINERO) {
+                        ElevatedCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(24.dp),
+                            colors = CardDefaults.elevatedCardColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                            )
+                        ) {
+                            Column(modifier = Modifier.padding(20.dp)) {
+                                Text(
+                                    "Resumen de Deuda",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Column {
+                                        Text("Original", style = MaterialTheme.typography.labelMedium)
+                                        Text("$${entity.loanAmount ?: 0.0}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                    }
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        val totalPaid = (entity.loanAmount ?: 0.0) - (entity.remainingAmount ?: 0.0)
+                                        Text("Abonado", style = MaterialTheme.typography.labelMedium)
+                                        Text("$${"%.2f".format(totalPaid)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
+                                    }
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text("Pendiente", style = MaterialTheme.typography.labelMedium)
+                                        Text("$${entity.remainingAmount ?: 0.0}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                                    }
+                                }
+                                
+                                if (entity.estado == LoanStatus.ACTIVO) {
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Button(
+                                        onClick = { showPaymentDialog = true },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Icon(Icons.Default.Add, null)
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Registrar Abono")
+                                    }
+                                }
+                            }
+                        }
+
+                        if (payments.isNotEmpty()) {
+                            Text("Historial de Abonos", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            payments.forEach { payment ->
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                ) {
+                                    ListItem(
+                                        headlineContent = { Text("$${payment.amount}", fontWeight = FontWeight.Bold) },
+                                        supportingContent = { 
+                                            Column {
+                                                Text(dateFormatter.format(payment.paymentDate))
+                                                payment.note?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                                            }
+                                        },
+                                        leadingContent = { Icon(Icons.Default.Payment, null, tint = Color(0xFF27AE60)) }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
                     if (!entity.notes.isNullOrBlank()) {
                         ElevatedCard(
                             modifier = Modifier.fillMaxWidth(),
@@ -312,7 +414,6 @@ fun LoanDetailScreen(
                         }
                     }
 
-                    // Foto de Devolución (Si existe)
                     if (entity.estado == LoanStatus.DEVUELTO && entity.photoReturnUri != null) {
                         Text(
                             "Evidencia de Devolución",
@@ -329,10 +430,6 @@ fun LoanDetailScreen(
                                 .clickable { selectedImageUri = entity.photoReturnUri },
                             contentScale = ContentScale.Crop
                         )
-                    }
-
-                    if (entity.reminderCount > 0) {
-                        InfoRow(Icons.Default.NotificationsActive, "Recordatorios enviados", entity.reminderCount.toString())
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -398,14 +495,41 @@ fun LoanDetailScreen(
             message = "¿Estás seguro de que quieres marcar este artículo como devuelto? Esta acción no se puede deshacer.",
             onConfirm = {
                 tempPhotoUriString = null
-                if (loan?.categoria == LoanCategory.DINERO) {
-                    successMessage = "¡Dinero devuelto con éxito!"
-                    viewModel.markAsReturnedWithCondition(null, "BUENO")
+                if (loan?.categoria == LoanCategory.DINERO && (loan?.remainingAmount ?: 0.0) > 0.01) {
+                    showReturnDialog = false
+                    showSettleDebtDialog = true
                 } else {
-                    showReturnConditionSheet = true
+                    if (loan?.categoria == LoanCategory.DINERO) {
+                        successMessage = "¡Dinero devuelto con éxito!"
+                        viewModel.markAsReturnedWithCondition(null, "BUENO")
+                    } else {
+                        showReturnConditionSheet = true
+                    }
                 }
             },
             onDismiss = { showReturnDialog = false }
+        )
+    }
+
+    if (showSettleDebtDialog) {
+        AlertDialog(
+            onDismissRequest = { showSettleDebtDialog = false },
+            title = { Text("¿Saldar deuda?") },
+            text = { Text("El préstamo aún tiene un saldo pendiente de $${loan?.remainingAmount}. ¿Quieres marcarlo como saldado (pagado por completo) al cerrar el préstamo?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.markAsReturnedWithCondition(null, "BUENO", settleDebt = true)
+                    successMessage = "Préstamo saldado y cerrado con éxito."
+                    showSettleDebtDialog = false
+                }) { Text("Sí, saldar todo") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    viewModel.markAsReturnedWithCondition(null, "BUENO", settleDebt = false)
+                    successMessage = "Préstamo cerrado. El saldo queda como pendiente."
+                    showSettleDebtDialog = false
+                }) { Text("No, cerrar con deuda") }
+            }
         )
     }
 
@@ -416,7 +540,7 @@ fun LoanDetailScreen(
             confirmText = "Confirmar",
             onConfirm = {
                 successMessage = "Préstamo cerrado como no devuelto."
-                viewModel.markAsReturnedWithCondition(photoReturnUri = null, condition = "NUNCA_DEVUELTO")
+                viewModel.markAsReturnedWithCondition(photoReturnUri = null, condition = "NUNCA_DEVUELTO", settleDebt = false)
             },
             onDismiss = { showLostDialog = false }
         )
@@ -481,7 +605,7 @@ fun LoanDetailScreen(
                     backgroundColor = Color(0xFF4CAF50),
                     onClick = {
                         successMessage = "¡Artículo devuelto en excelentes condiciones!"
-                        viewModel.markAsReturnedWithCondition(tempPhotoUriString, "EXCELENTE")
+                        viewModel.markAsReturnedWithCondition(tempPhotoUriString, "EXCELENTE", settleDebt = false)
                         showReturnConditionSheet = false
                     }
                 )
@@ -493,7 +617,7 @@ fun LoanDetailScreen(
                     backgroundColor = Color(0xFF2196F3),
                     onClick = {
                         successMessage = "¡Artículo devuelto correctamente!"
-                        viewModel.markAsReturnedWithCondition(tempPhotoUriString, "BUENO")
+                        viewModel.markAsReturnedWithCondition(tempPhotoUriString, "BUENO", settleDebt = false)
                         showReturnConditionSheet = false
                     }
                 )
@@ -505,7 +629,7 @@ fun LoanDetailScreen(
                     backgroundColor = Color(0xFFFFA500),
                     onClick = {
                         successMessage = "Registro actualizado. El artículo tiene daños."
-                        viewModel.markAsReturnedWithCondition(tempPhotoUriString, "MALO")
+                        viewModel.markAsReturnedWithCondition(tempPhotoUriString, "MALO", settleDebt = false)
                         showReturnConditionSheet = false
                     }
                 )
@@ -515,6 +639,45 @@ fun LoanDetailScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
         }
+    }
+
+    if (showPaymentDialog) {
+        var amount by remember { mutableStateOf("") }
+        var note by remember { mutableStateOf("") }
+
+        AlertDialog(
+            onDismissRequest = { showPaymentDialog = false },
+            title = { Text("Registrar Abono") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    OutlinedTextField(
+                        value = amount,
+                        onValueChange = { amount = it },
+                        label = { Text("Monto") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = note,
+                        onValueChange = { note = it },
+                        label = { Text("Nota (opcional)") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.registerPayment(amount, note)
+                        showPaymentDialog = false
+                    }
+                ) { Text("Registrar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPaymentDialog = false }) { Text("Cancelar") }
+            }
+        )
     }
 
     selectedImageUri?.let { uri ->

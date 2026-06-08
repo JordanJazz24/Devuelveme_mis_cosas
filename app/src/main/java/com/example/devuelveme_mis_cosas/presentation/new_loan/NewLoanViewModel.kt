@@ -39,6 +39,7 @@ data class NewLoanUiState(
     val fechaDevolucion: Date = Date(),
     val photoUri: Uri? = null,
     val notes: String = "",
+    val loanAmount: String = "",
     val isSaving: Boolean = false,
     val saveSuccess: Boolean = false,
     val errorMessage: String? = null,
@@ -92,7 +93,16 @@ class NewLoanViewModel @Inject constructor(
     }
 
     fun onCategoriaChange(newValue: LoanCategory) {
-        _uiState.update { it.copy(categoria = newValue) }
+        _uiState.update { 
+            it.copy(
+                categoria = newValue,
+                loanAmount = if (newValue == LoanCategory.DINERO) it.loanAmount else ""
+            ) 
+        }
+    }
+
+    fun onLoanAmountChange(newValue: String) {
+        _uiState.update { it.copy(loanAmount = newValue) }
     }
 
     fun onFechaPrestamoChange(newValue: Long) {
@@ -208,6 +218,15 @@ class NewLoanViewModel @Inject constructor(
             return
         }
 
+        var amount: Double? = null
+        if (currentState.categoria == LoanCategory.DINERO) {
+            amount = currentState.loanAmount.toDoubleOrNull()
+            if (amount == null || amount <= 0) {
+                _uiState.update { it.copy(errorMessage = "Ingresa un monto válido mayor a 0") }
+                return
+            }
+        }
+
         viewModelScope.launch {
             try {
                 _uiState.update { it.copy(isSaving = true) }
@@ -223,7 +242,9 @@ class NewLoanViewModel @Inject constructor(
                     photoReturnUri = null,
                     estado = LoanStatus.ACTIVO,
                     categoria = currentState.categoria,
-                    notes = currentState.notes.ifBlank { null }
+                    notes = currentState.notes.ifBlank { null },
+                    loanAmount = amount,
+                    remainingAmount = amount
                 )
                 repository.insertLoan(newLoan)
 

@@ -10,8 +10,10 @@ import androidx.lifecycle.viewModelScope
 import androidx.work.WorkManager
 import com.example.devuelveme_mis_cosas.data.local.ContactReputation
 import com.example.devuelveme_mis_cosas.data.local.LoanEntity
+import com.example.devuelveme_mis_cosas.data.local.LoanPayment
 import com.example.devuelveme_mis_cosas.data.local.LoanStatus
 import com.example.devuelveme_mis_cosas.domain.repository.ContactReputationRepository
+import com.example.devuelveme_mis_cosas.domain.repository.LoanPaymentRepository
 import com.example.devuelveme_mis_cosas.domain.repository.LoanRepository
 import com.example.devuelveme_mis_cosas.domain.util.ReminderMessageBuilder
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -30,13 +32,15 @@ import javax.inject.Inject
 data class LoanDetailUiState(
     val reminderMessage: String? = null,
     val reminderError: Boolean = false,
-    val saveSuccess: Boolean = false
+    val saveSuccess: Boolean = false,
+    val paymentSuccess: Boolean = false
 )
 
 @HiltViewModel
 class LoanDetailViewModel @Inject constructor(
     private val repository: LoanRepository,
     private val contactReputationRepository: ContactReputationRepository,
+    private val loanPaymentRepository: LoanPaymentRepository,
     private val savedStateHandle: SavedStateHandle,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
@@ -52,6 +56,13 @@ class LoanDetailViewModel @Inject constructor(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = null
+        )
+
+    val payments: StateFlow<List<LoanPayment>> = loanPaymentRepository.getPaymentsByLoanId(loanId)
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
         )
 
     fun sendReminder() {
@@ -105,16 +116,27 @@ class LoanDetailViewModel @Inject constructor(
         }
     }
 
-    fun markAsReturnedWithCondition(photoReturnUri: String? = null, condition: String) {
+    fun markAsReturnedWithCondition(photoReturnUri: String? = null, condition: String, settleDebt: Boolean = false) {
         val currentLoan = loan.value ?: return
         viewModelScope.launch {
             val updatedLoan = currentLoan.copy(
                 estado = LoanStatus.DEVUELTO,
                 photoReturnUri = photoReturnUri,
                 fechaDevolucionReal = Date(),
-                returnCondition = condition
+                returnCondition = condition,
+                remainingAmount = if (settleDebt) 0.0 else currentLoan.remainingAmount
             )
             repository.updateLoan(updatedLoan)
+            
+            if (settleDebt && (currentLoan.remainingAmount ?: 0.0) > 0) {
+                val payment = LoanPayment(
+                    loanId = loanId,
+                    amount = currentLoan.remainingAmount ?: 0.0,
+                    note = "Saldado al cerrar préstamo"
+                )
+                loanPaymentRepository.insertPayment(payment)
+            }
+
             recalculateContactReputation(updatedLoan)
             WorkManager.getInstance(context).cancelAllWorkByTag(loanId.toString())
             _uiState.update { it.copy(saveSuccess = true) }
@@ -171,9 +193,40 @@ class LoanDetailViewModel @Inject constructor(
         contactReputationRepository.upsert(reputation)
     }
 
+    fun registerPayment(amountStr: String, note: String?) {
+        val currentLoan = loan.value ?: return
+        val amount = amountStr.toDoubleOrNull() ?: return
+        if (amount <= 0) return
+
+        viewModelScope.launch {
+            val payment = LoanPayment(
+                loanId = loanId,
+                amount = amount,
+                note = if (note.isNullOrBlank()) null else note
+            )
+            loanPaymentRepository.insertPayment(payment)
+
+            val newRemaining = ((currentLoan.remainingAmount ?: 0.0) - amount).coerceAtLeast(0.0)
+            
+            // Actualizamos la entidad con el nuevo saldo
+            val updatedLoan = currentLoan.copy(remainingAmount = newRemaining)
+            repository.updateLoan(updatedLoan)
+
+            if (newRemaining <= 0.01) {
+                // Si ya no hay saldo, llamamos a la función que cierra el préstamo
+                // Esta función también hace un update del préstamo, por lo que usamos el objeto actualizado
+                markAsReturnedWithCondition(photoReturnUri = null, condition = "BUENO", settleDebt = true)
+                _uiState.update { it.copy(reminderMessage = "¡Préstamo liquidado y cerrado! ✓", reminderError = false) }
+            } else {
+                _uiState.update { it.copy(reminderMessage = "Abono registrado correctamente", reminderError = false) }
+            }
+        }
+    }
+
     fun deleteLoan() {
         val currentLoan = loan.value ?: return
         viewModelScope.launch {
+            loanPaymentRepository.deletePaymentsByLoanId(loanId)
             repository.deleteLoan(currentLoan)
             WorkManager.getInstance(context).cancelAllWorkByTag(loanId.toString())
             _uiState.update { it.copy(saveSuccess = true) }

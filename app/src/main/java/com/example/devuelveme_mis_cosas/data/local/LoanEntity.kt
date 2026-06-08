@@ -38,5 +38,7 @@ data class LoanEntity(
     val reminderCount: Int = 0,
     val lastReminderTimestamp: Date? = null,
     val notes: String? = null,
-    val returnCondition: String? = null // EXCELENTE, BUENO, MALO, NUNCA_DEVUELTO
+    val returnCondition: String? = null, // EXCELENTE, BUENO, MALO, NUNCA_DEVUELTO
+    val loanAmount: Double? = null,
+    val remainingAmount: Double? = null
 )

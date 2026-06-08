@@ -6,6 +6,7 @@ import android.os.Environment
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -30,6 +32,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -211,6 +214,20 @@ fun NewLoanScreen(
                         )
                     }
                 }
+            }
+
+            AnimatedVisibility(visible = uiState.categoria == LoanCategory.DINERO) {
+                OutlinedTextField(
+                    value = uiState.loanAmount,
+                    onValueChange = viewModel::onLoanAmountChange,
+                    label = { Text("Monto prestado") },
+                    placeholder = { Text("0.00") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    leadingIcon = { Icon(Icons.Default.AttachMoney, contentDescription = null) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true
+                )
             }
 
             // Step 3: Redesigned Contact Card

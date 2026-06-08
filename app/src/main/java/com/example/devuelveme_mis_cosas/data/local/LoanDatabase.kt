@@ -6,11 +6,12 @@ import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [LoanEntity::class, ContactReputation::class], version = 3, exportSchema = false)
+@Database(entities = [LoanEntity::class, ContactReputation::class, LoanPayment::class], version = 4, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class LoanDatabase : RoomDatabase() {
     abstract fun loanDao(): LoanDao
     abstract fun contactReputationDao(): ContactReputationDao
+    abstract fun loanPaymentDao(): LoanPaymentDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -37,6 +38,25 @@ abstract class LoanDatabase : RoomDatabase() {
                         returnedDamaged INTEGER NOT NULL DEFAULT 0,
                         neverReturned INTEGER NOT NULL DEFAULT 0,
                         reputationScore REAL NOT NULL DEFAULT 0.0
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
+
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE loans ADD COLUMN loanAmount REAL DEFAULT NULL")
+                db.execSQL("ALTER TABLE loans ADD COLUMN remainingAmount REAL DEFAULT NULL")
+
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS loan_payments (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        loanId TEXT NOT NULL,
+                        amount REAL NOT NULL,
+                        paymentDate INTEGER NOT NULL,
+                        note TEXT
                     )
                     """.trimIndent()
                 )
