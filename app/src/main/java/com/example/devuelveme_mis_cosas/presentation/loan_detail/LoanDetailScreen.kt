@@ -325,43 +325,60 @@ fun LoanDetailScreen(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(24.dp),
                             colors = CardDefaults.elevatedCardColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                                containerColor = MaterialTheme.colorScheme.surface
                             )
                         ) {
-                            Column(modifier = Modifier.padding(20.dp)) {
-                                Text(
-                                    "Resumen de Deuda",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Column {
-                                        Text("Original", style = MaterialTheme.typography.labelMedium)
-                                        Text("$${entity.loanAmount ?: 0.0}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                    }
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        val totalPaid = (entity.loanAmount ?: 0.0) - (entity.remainingAmount ?: 0.0)
-                                        Text("Abonado", style = MaterialTheme.typography.labelMedium)
-                                        Text("$${"%.2f".format(totalPaid)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
-                                    }
-                                    Column(horizontalAlignment = Alignment.End) {
-                                        Text("Pendiente", style = MaterialTheme.typography.labelMedium)
-                                        Text("$${entity.remainingAmount ?: 0.0}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                            Column(modifier = Modifier.padding(24.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        "Resumen de Deuda",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Surface(
+                                        color = if ((entity.remainingAmount ?: 0.0) <= 0.01) 
+                                            Color(0xFF2E7D32).copy(alpha = 0.1f) 
+                                        else 
+                                            MaterialTheme.colorScheme.error.copy(alpha = 0.1f),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text(
+                                            text = if ((entity.remainingAmount ?: 0.0) <= 0.01) "SALDADO" else "PENDIENTE",
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if ((entity.remainingAmount ?: 0.0) <= 0.01) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error
+                                        )
                                     }
                                 }
                                 
+                                Spacer(modifier = Modifier.height(24.dp))
+                                
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    DebtItem("Original", "$${entity.loanAmount ?: 0.0}", MaterialTheme.colorScheme.onSurface)
+                                    DebtItem("Abonado", "$${"%.2f".format((entity.loanAmount ?: 0.0) - (entity.remainingAmount ?: 0.0))}", Color(0xFF2E7D32))
+                                    DebtItem("Pendiente", "$${entity.remainingAmount ?: 0.0}", MaterialTheme.colorScheme.error)
+                                }
+                                
                                 if (entity.estado == LoanStatus.ACTIVO) {
-                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Spacer(modifier = Modifier.height(24.dp))
                                     Button(
                                         onClick = { showPaymentDialog = true },
                                         modifier = Modifier.fillMaxWidth(),
-                                        shape = RoundedCornerShape(12.dp)
+                                        shape = RoundedCornerShape(16.dp),
+                                        contentPadding = PaddingValues(12.dp)
                                     ) {
-                                        Icon(Icons.Default.Add, null)
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text("Registrar Abono")
+                                        Icon(Icons.Default.AddCard, null, modifier = Modifier.size(20.dp))
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Text("Registrar Abono", fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
@@ -702,6 +719,14 @@ fun InfoRow(icon: ImageVector, label: String, value: String) {
             Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
         }
+    }
+}
+
+@Composable
+fun DebtItem(label: String, value: String, color: Color) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = color)
     }
 }
 
