@@ -65,6 +65,7 @@ fun LoanDetailScreen(
     var successMessage by remember { mutableStateOf("") }
     var showPaymentDialog by remember { mutableStateOf(false) }
     var showSettleDebtDialog by remember { mutableStateOf(false) }
+    var showDueDatePicker by remember { mutableStateOf(false) }
 
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
@@ -277,11 +278,35 @@ fun LoanDetailScreen(
                         Column(modifier = Modifier.padding(20.dp)) {
                             InfoRow(Icons.Default.CalendarToday, "Fecha Préstamo", dateFormatter.format(entity.fechaPrestamo))
                             Spacer(modifier = Modifier.height(16.dp))
-                            InfoRow(
-                                Icons.Default.CalendarMonth, 
-                                "Límite Acordado", 
-                                dateFormatter.format(entity.fechaDevolucion)
-                            )
+                            
+                            val isEditable = entity.estado == LoanStatus.ACTIVO
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .then(if (isEditable) Modifier.clickable { showDueDatePicker = true } else Modifier)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    InfoRow(
+                                        Icons.Default.CalendarMonth, 
+                                        "Límite Acordado", 
+                                        dateFormatter.format(entity.fechaDevolucion)
+                                    )
+                                    if (isEditable) {
+                                        Spacer(modifier = Modifier.weight(1f))
+                                        Icon(
+                                            Icons.Default.Edit,
+                                            contentDescription = "Editar fecha",
+                                            modifier = Modifier.size(16.dp),
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                            }
+
                             if (entity.fechaDevolucionReal != null) {
                                 Spacer(modifier = Modifier.height(16.dp))
                                 InfoRow(
@@ -694,6 +719,14 @@ fun LoanDetailScreen(
             dismissButton = {
                 TextButton(onClick = { showPaymentDialog = false }) { Text("Cancelar") }
             }
+        )
+    }
+
+    if (showDueDatePicker && loan != null) {
+        DatePickerModal(
+            initialDate = viewModel.getUtcMillis(loan!!.fechaDevolucion),
+            onDateSelected = { viewModel.updateReturnDate(it) },
+            onDismiss = { showDueDatePicker = false }
         )
     }
 

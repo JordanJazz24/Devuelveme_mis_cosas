@@ -1,6 +1,7 @@
 package com.example.devuelveme_mis_cosas.presentation.history
 
 import androidx.compose.animation.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -9,21 +10,28 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import com.example.devuelveme_mis_cosas.data.local.LoanEntity
 import com.example.devuelveme_mis_cosas.presentation.components.AnimatedSuccessDialog
 import com.example.devuelveme_mis_cosas.presentation.components.ConfirmationDialog
+import com.example.devuelveme_mis_cosas.ui.theme.Amber
+import com.example.devuelveme_mis_cosas.ui.theme.Emerald
+import com.example.devuelveme_mis_cosas.ui.theme.Rose
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -40,119 +48,121 @@ fun HistoryScreen(
     var loanToDelete by remember { mutableStateOf<LoanEntity?>(null) }
     var showSuccessDialog by remember { mutableStateOf(false) }
     var successMessage by remember { mutableStateOf("") }
-
-    var menuExpanded by remember { mutableStateOf(false) }
     
     val dateFormatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { 
-                    Text(
-                        "Historial",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    ) 
-                },
-                actions = {
-                    IconButton(onClick = { menuExpanded = true }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "Menú")
-                    }
-                    DropdownMenu(
-                        expanded = menuExpanded,
-                        onDismissRequest = { menuExpanded = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Vaciar historial") },
-                            onClick = {
-                                menuExpanded = false
-                                showDeleteAllDialog = true
-                            },
-                            leadingIcon = { Icon(Icons.Default.DeleteSweep, null) }
-                        )
-                    }
-                },
-                windowInsets = WindowInsets(0, 0, 0, 0),
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    scrolledContainerColor = Color.Transparent
-                )
-            )
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-            // Buscador
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { viewModel.updateSearchQuery(it) },
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                placeholder = { Text("Buscar préstamo o contacto...") },
-                leadingIcon = { Icon(Icons.Default.Search, null) },
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.updateSearchQuery("") }) {
-                            Icon(Icons.Default.Close, null)
-                        }
-                    }
-                },
-                shape = RoundedCornerShape(16.dp),
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surface
-                )
-            )
-
-            if (groupedLoans.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
+                    .padding(horizontal = 20.dp, vertical = 8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        if (searchQuery.isEmpty()) "No hay préstamos devueltos aún" else "No se encontraron resultados",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        "Historial",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.ExtraBold
+                        )
                     )
+                    IconButton(
+                        onClick = { showDeleteAllDialog = true },
+                        modifier = Modifier.size(40.dp),
+                        colors = IconButtonDefaults.iconButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Icon(Icons.Default.DeleteSweep, contentDescription = "Vaciar historial", modifier = Modifier.size(20.dp))
+                    }
                 }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    groupedLoans.forEach { (month, loans) ->
-                        stickyHeader {
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.95f)
-                            ) {
-                                Text(
-                                    text = month,
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Search Pill
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { viewModel.updateSearchQuery(it) },
+                    modifier = Modifier.fillMaxWidth().height(78.dp),
+                    placeholder = { Text("Buscar préstamo o contacto...") },
+                    leadingIcon = { Icon(Icons.Default.Search, null, modifier = Modifier.size(20.dp)) },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { viewModel.updateSearchQuery("") }) {
+                                Icon(Icons.Default.Close, null)
                             }
                         }
-
-                        items(loans, key = { it.id }) { loan ->
-                            SwipeToDeleteWrapper(
-                                onDelete = { loanToDelete = loan }
-                            ) {
-                                HistoryItem(
-                                    loan = loan,
-                                    onClick = { onNavigateToDetail(loan.id) },
-                                    dateFormatter = dateFormatter
+                    },
+                    shape = RoundedCornerShape(percent = 50),
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyMedium,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = Color.Transparent,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                    )
+                )
+            }
+        }
+    ) { padding ->
+        if (groupedLoans.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize().padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    if (searchQuery.isEmpty()) "No hay préstamos devueltos aún" else "No se encontraron resultados",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(padding),
+                contentPadding = PaddingValues(bottom = 100.dp, start = 20.dp, end = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                groupedLoans.forEach { (month, loans) ->
+                    stickyHeader {
+                        val borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .drawBehind {
+                                    drawLine(
+                                        color = borderColor,
+                                        start = Offset(0f, size.height),
+                                        end = Offset(size.width, size.height),
+                                        strokeWidth = 1.dp.toPx()
+                                    )
+                                },
+                            color = MaterialTheme.colorScheme.background.copy(alpha = 0.85f)
+                        ) {
+                            Text(
+                                text = month.uppercase(),
+                                modifier = Modifier.padding(vertical = 12.dp),
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = 1.sp,
+                                    color = MaterialTheme.colorScheme.primary
                                 )
-                            }
+                            )
+                        }
+                    }
+
+                    items(loans, key = { it.id }) { loan ->
+                        SwipeToDeleteWrapper(
+                            onDelete = { loanToDelete = loan }
+                        ) {
+                            HistoryItem(
+                                loan = loan,
+                                onClick = { onNavigateToDetail(loan.id) },
+                                dateFormatter = dateFormatter
+                            )
                         }
                     }
                 }
@@ -231,7 +241,7 @@ fun SwipeToDeleteWrapper(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .padding(vertical = 4.dp)
                     .clip(RoundedCornerShape(24.dp))
                     .background(color),
                 contentAlignment = Alignment.CenterEnd
@@ -245,7 +255,7 @@ fun SwipeToDeleteWrapper(
             }
         },
         content = {
-            Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+            Box(modifier = Modifier.padding(vertical = 4.dp)) {
                 content()
             }
         }
@@ -258,78 +268,93 @@ fun HistoryItem(
     onClick: () -> Unit,
     dateFormatter: SimpleDateFormat
 ) {
-    ElevatedCard(
+    val conditionColor = getConditionColor(loan.returnCondition)
+    
+    Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(24.dp),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top
             ) {
-                Text(
-                    text = loan.nombreObjeto,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f)
-                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = loan.nombreObjeto,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "De: ${loan.contactoNombre}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 
                 Surface(
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                    shape = RoundedCornerShape(8.dp)
+                    color = conditionColor.copy(alpha = 0.15f),
+                    shape = RoundedCornerShape(6.dp)
                 ) {
                     Text(
-                        text = loan.returnCondition ?: "Cerrado",
+                        text = (loan.returnCondition ?: "CERRADO").replace("_", " "),
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                        color = conditionColor,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
             
-            Text(
-                text = "De: ${loan.contactoNombre}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
             
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(100.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    .height(80.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(modifier = Modifier.weight(1f)) {
                     HistoryThumbnail(uri = loan.photoLoanUri, label = "INICIAL")
                 }
+                
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.outline
+                )
+                
                 Box(modifier = Modifier.weight(1f)) {
                     HistoryThumbnail(uri = loan.photoReturnUri, label = "DEVUELTO")
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             val returnDate = loan.fechaDevolucionReal ?: loan.fechaDevolucion
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Icon(
-                    Icons.Default.CalendarToday, 
+                    Icons.Default.EventAvailable, 
                     null, 
                     modifier = Modifier.size(14.dp),
-                    tint = MaterialTheme.colorScheme.secondary
+                    tint = Emerald
                 )
                 Text(
-                    text = "Cerrado el ${dateFormatter.format(returnDate)}",
+                    text = "Devuelto el ${dateFormatter.format(returnDate)}",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.secondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -343,6 +368,7 @@ fun HistoryThumbnail(uri: String?, label: String) {
         modifier = Modifier
             .fillMaxSize()
             .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
     ) {
         if (uri != null) {
             AsyncImage(
@@ -352,18 +378,46 @@ fun HistoryThumbnail(uri: String?, label: String) {
                 contentScale = ContentScale.Crop
             )
         } else {
-            Surface(
+            Box(
                 modifier = Modifier.fillMaxSize(),
-                color = MaterialTheme.colorScheme.surfaceVariant
+                contentAlignment = Alignment.Center
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        label, 
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                Icon(
+                    Icons.Default.ImageNotSupported,
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp),
+                    tint = MaterialTheme.colorScheme.outlineVariant
+                )
             }
         }
+        
+        // Label overlay
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .background(
+                    Color.Black.copy(alpha = 0.5f),
+                    RoundedCornerShape(topEnd = 8.dp)
+                )
+                .padding(horizontal = 6.dp, vertical = 2.dp)
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp),
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
+private fun getConditionColor(condition: String?): Color {
+    return when (condition) {
+        "EXCELENTE" -> Emerald
+        "BUENO" -> Emerald.copy(alpha = 0.7f)
+        "MALO" -> Amber
+        "NUNCA_DEVUELTO" -> Rose
+        else -> MaterialTheme.colorScheme.secondary
     }
 }

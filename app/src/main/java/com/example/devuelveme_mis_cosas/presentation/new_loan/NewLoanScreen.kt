@@ -39,6 +39,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import com.example.devuelveme_mis_cosas.data.local.LoanCategory
 import com.example.devuelveme_mis_cosas.presentation.components.AnimatedSuccessDialog
+import com.example.devuelveme_mis_cosas.presentation.components.DatePickerModal
 import com.example.devuelveme_mis_cosas.presentation.components.FullScreenImageDialog
 import com.example.devuelveme_mis_cosas.presentation.components.PermissionDialog
 import java.io.File
@@ -515,20 +516,4 @@ fun DatePickerField(label: String, date: Date, onClick: () -> Unit, modifier: Mo
             }
         }
     }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun DatePickerModal(initialDate: Long, onDateSelected: (Long) -> Unit, onDismiss: () -> Unit) {
-    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialDate)
-    DatePickerDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(onClick = {
-                datePickerState.selectedDateMillis?.let { onDateSelected(it) }
-                onDismiss()
-            }) { Text("Aceptar") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
-    ) { DatePicker(state = datePickerState) }
 }

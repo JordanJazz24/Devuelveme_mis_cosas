@@ -179,3 +179,19 @@ fun ConfirmationDialog(
         properties = DialogProperties(usePlatformDefaultWidth = true)
     )
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DatePickerModal(initialDate: Long, onDateSelected: (Long) -> Unit, onDismiss: () -> Unit) {
+    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialDate)
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = {
+                datePickerState.selectedDateMillis?.let { onDateSelected(it) }
+                onDismiss()
+            }) { Text("Aceptar") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
+    ) { DatePicker(state = datePickerState) }
+}

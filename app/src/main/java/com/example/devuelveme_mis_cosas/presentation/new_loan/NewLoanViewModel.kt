@@ -15,6 +15,7 @@ import com.example.devuelveme_mis_cosas.data.local.LoanStatus
 import com.example.devuelveme_mis_cosas.domain.model.Contact
 import com.example.devuelveme_mis_cosas.domain.repository.ContactsRepository
 import com.example.devuelveme_mis_cosas.domain.repository.LoanRepository
+import com.example.devuelveme_mis_cosas.domain.util.DateUtils
 import com.example.devuelveme_mis_cosas.work.LoanReminderWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -62,8 +63,8 @@ class NewLoanViewModel @Inject constructor(
         val now = System.currentTimeMillis()
         _uiState.update { 
             it.copy(
-                fechaPrestamo = normalizeDateToLocalMidday(now),
-                fechaDevolucion = normalizeDateToLocalMidday(now + 86400000 * 7) // +1 week
+                fechaPrestamo = DateUtils.normalizeDateToLocalMidday(now),
+                fechaDevolucion = DateUtils.normalizeDateToLocalMidday(now + 86400000 * 7) // +1 week
             )
         }
     }
@@ -106,45 +107,18 @@ class NewLoanViewModel @Inject constructor(
     }
 
     fun onFechaPrestamoChange(newValue: Long) {
-        _uiState.update { it.copy(fechaPrestamo = normalizeDateToLocalMidday(newValue), errorMessage = null) }
+        _uiState.update { it.copy(fechaPrestamo = DateUtils.normalizeDateToLocalMidday(newValue), errorMessage = null) }
     }
 
     fun onFechaDevolucionChange(newValue: Long) {
-        _uiState.update { it.copy(fechaDevolucion = normalizeDateToLocalMidday(newValue), errorMessage = null) }
+        _uiState.update { it.copy(fechaDevolucion = DateUtils.normalizeDateToLocalMidday(newValue), errorMessage = null) }
     }
 
     fun onNotesChange(newValue: String) {
         _uiState.update { it.copy(notes = newValue) }
     }
 
-    fun getUtcMillis(date: Date): Long {
-        val calendar = Calendar.getInstance()
-        calendar.time = date
-        val utcCalendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
-        utcCalendar.set(
-            calendar.get(Calendar.YEAR),
-            calendar.get(Calendar.MONTH),
-            calendar.get(Calendar.DAY_OF_MONTH),
-            0, 0, 0
-        )
-        utcCalendar.set(Calendar.MILLISECOND, 0)
-        return utcCalendar.timeInMillis
-    }
-
-    private fun normalizeDateToLocalMidday(millis: Long): Date {
-        val utcCalendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
-        utcCalendar.timeInMillis = millis
-        
-        val result = Calendar.getInstance()
-        result.set(
-            utcCalendar.get(Calendar.YEAR),
-            utcCalendar.get(Calendar.MONTH),
-            utcCalendar.get(Calendar.DAY_OF_MONTH),
-            12, 0, 0
-        )
-        result.set(Calendar.MILLISECOND, 0)
-        return result.time
-    }
+    fun getUtcMillis(date: Date): Long = DateUtils.getUtcMillis(date)
 
     fun onPhotoSelected(uri: Uri?) {
         _uiState.update { it.copy(photoUri = uri) }

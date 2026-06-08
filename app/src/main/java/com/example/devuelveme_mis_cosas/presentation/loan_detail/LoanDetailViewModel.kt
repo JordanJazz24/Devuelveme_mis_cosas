@@ -7,6 +7,8 @@ import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.Data
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.example.devuelveme_mis_cosas.data.local.ContactReputation
 import com.example.devuelveme_mis_cosas.data.local.LoanEntity
@@ -15,7 +17,9 @@ import com.example.devuelveme_mis_cosas.data.local.LoanStatus
 import com.example.devuelveme_mis_cosas.domain.repository.ContactReputationRepository
 import com.example.devuelveme_mis_cosas.domain.repository.LoanPaymentRepository
 import com.example.devuelveme_mis_cosas.domain.repository.LoanRepository
+import com.example.devuelveme_mis_cosas.domain.util.DateUtils
 import com.example.devuelveme_mis_cosas.domain.util.ReminderMessageBuilder
+import com.example.devuelveme_mis_cosas.work.LoanReminderWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,6 +31,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.Date
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 data class LoanDetailUiState(
@@ -222,6 +227,63 @@ class LoanDetailViewModel @Inject constructor(
             }
         }
     }
+
+    fun updateReturnDate(newDateMillis: Long) {
+        val currentLoan = loan.value ?: return
+        val newDate = DateUtils.normalizeDateToLocalMidday(newDateMillis)
+        
+        if (newDate.before(currentLoan.fechaPrestamo)) {
+            _uiState.update { it.copy(reminderMessage = "La fecha de devolución no puede ser anterior al préstamo", reminderError = true) }
+            return
+        }
+
+        viewModelScope.launch {
+            val updatedLoan = currentLoan.copy(fechaDevolucion = newDate)
+            repository.updateLoan(updatedLoan)
+            
+            // Reprogramar recordatorios
+            rescheduleWorkManager(updatedLoan)
+            
+            _uiState.update { it.copy(reminderMessage = "Fecha de devolución actualizada ✓", reminderError = false) }
+        }
+    }
+
+    private fun rescheduleWorkManager(loan: LoanEntity) {
+        val workManager = WorkManager.getInstance(context)
+        val tag = loan.id.toString()
+        
+        // Cancelar existentes
+        workManager.cancelAllWorkByTag(tag)
+        
+        // Programar nuevos
+        val inputData = Data.Builder()
+            .putString(LoanReminderWorker.KEY_LOAN_ID, loan.id.toString())
+            .putString(LoanReminderWorker.KEY_CONTACTO_NOMBRE, loan.contactoNombre)
+            .putString(LoanReminderWorker.KEY_NOMBRE_OBJETO, loan.nombreObjeto)
+            .build()
+
+        val delay7Days = (loan.fechaDevolucion.time - 7 * 86_400_000L) - System.currentTimeMillis()
+        if (delay7Days > 0) {
+            val request7Days = OneTimeWorkRequestBuilder<LoanReminderWorker>()
+                .setInputData(inputData)
+                .setInitialDelay(delay7Days, TimeUnit.MILLISECONDS)
+                .addTag(tag)
+                .build()
+            workManager.enqueue(request7Days)
+        }
+
+        val delayDue = loan.fechaDevolucion.time - System.currentTimeMillis()
+        if (delayDue > 0) {
+            val requestDue = OneTimeWorkRequestBuilder<LoanReminderWorker>()
+                .setInputData(inputData)
+                .setInitialDelay(delayDue, TimeUnit.MILLISECONDS)
+                .addTag(tag)
+                .build()
+            workManager.enqueue(requestDue)
+        }
+    }
+
+    fun getUtcMillis(date: Date): Long = DateUtils.getUtcMillis(date)
 
     fun deleteLoan() {
         val currentLoan = loan.value ?: return
