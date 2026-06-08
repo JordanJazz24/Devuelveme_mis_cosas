@@ -68,6 +68,15 @@ class LoanListViewModelTest {
         override fun getLoanById(id: UUID): Flow<LoanEntity> = flowOf(
             LoanEntity(id, "Test", "Test", "", null, Date(), Date(), null, null, null, LoanStatus.ACTIVO, LoanCategory.OTROS, 0, null)
         )
+
+        override fun getLoansForContact(phoneNumber: String): Flow<List<LoanEntity>> {
+            TODO("Not yet implemented")
+        }
+
+        override suspend fun deleteAllReturnedLoans() {
+            TODO("Not yet implemented")
+        }
+
         override suspend fun insertLoan(loan: LoanEntity) {}
         override suspend fun updateLoan(loan: LoanEntity) {}
         override suspend fun deleteLoan(loan: LoanEntity) {}

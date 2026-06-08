@@ -25,6 +25,7 @@ class LoanReminderWorker @AssistedInject constructor(
 ) : CoroutineWorker(context, workerParams) {
 
     companion object {
+        // Sin cambios — se mantienen todas las constantes originales
         const val KEY_LOAN_ID = "loanId"
         const val KEY_CONTACTO_NOMBRE = "contactoNombre"
         const val KEY_NOMBRE_OBJETO = "nombreObjeto"
@@ -32,27 +33,53 @@ class LoanReminderWorker @AssistedInject constructor(
     }
 
     override suspend fun doWork(): Result {
-        // Buscamos préstamos que vencen en las próximas 24 horas
         val activeLoans = repository.getActiveLoans().first()
         val now = Calendar.getInstance()
-        val tomorrow = Calendar.getInstance().apply {
-            add(Calendar.DAY_OF_YEAR, 1)
-        }
 
         activeLoans.forEach { loan ->
             val loanDueDate = Calendar.getInstance().apply {
                 time = loan.fechaDevolucion
             }
 
-            if (loanDueDate.after(now) && loanDueDate.before(tomorrow)) {
-                sendNotification(loan.id.toString(), loan.contactoNombre, loan.nombreObjeto)
+            when (ReminderTriggerEvaluator.shouldSendReminder(loan, now.time)) {
+
+                // Vence hoy: mensaje urgente 🔴
+                ReminderType.DUE_TODAY ->
+                    sendNotification(
+                        loanId          = loan.id.toString(),
+                        contactoNombre  = loan.contactoNombre,
+                        nombreObjeto    = loan.nombreObjeto,
+                        title           = "¡Hoy vence el préstamo! 🔴",
+                        body            = "¿Ya te devolvió ${loan.contactoNombre} el/la ${loan.nombreObjeto}? ¡Vence hoy!"
+                    )
+
+                // Vence en 7 días: recordatorio anticipado 📦
+                ReminderType.SEVEN_DAYS ->
+                    sendNotification(
+                        loanId          = loan.id.toString(),
+                        contactoNombre  = loan.contactoNombre,
+                        nombreObjeto    = loan.nombreObjeto,
+                        title           = "Recordatorio de préstamo 📦",
+                        body            = "¿Ya te devolvió ${loan.contactoNombre} el/la ${loan.nombreObjeto}? Vence en 7 días."
+                    )
+
+                // Ningún recordatorio aplica hoy
+                ReminderType.NONE -> { /* no hacer nada */ }
             }
         }
 
         return Result.success()
     }
 
-    private fun sendNotification(loanId: String, contactoNombre: String, nombreObjeto: String) {
+    // Firma idéntica a la original + parámetros opcionales title/body con
+    // defaults para no romper ninguna llamada existente dentro del proyecto.
+    private fun sendNotification(
+        loanId: String,
+        contactoNombre: String,
+        nombreObjeto: String,
+        title: String = "Recordatorio de préstamo 📦",
+        body: String  = "¿Ya te devolvió $contactoNombre el/la $nombreObjeto? Vence pronto."
+    ) {
         val context = applicationContext
         val intent = Intent(context, MainActivity::class.java).apply {
             putExtra(KEY_LOAN_ID, loanId)
@@ -69,14 +96,15 @@ class LoanReminderWorker @AssistedInject constructor(
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("Recordatorio de préstamo 📦")
-            .setContentText("¿Ya te devolvió $contactoNombre el/la $nombreObjeto? Vence pronto.")
+            .setContentTitle(title)
+            .setContentText(body)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
 
-        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val notificationManager =
+            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.notify(loanId.hashCode(), notification)
     }
 }
